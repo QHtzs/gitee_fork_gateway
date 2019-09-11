@@ -139,6 +139,11 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 	if t.BeatInf != nil {
 		beat := t.BeatInf.BeatBytes()
 		freq := t.BeatInf.BeatInteval()
+
+		if freq < 1 { //时间间隔小于1时，不主动发心跳，只做被动响应
+			return
+		}
+
 		if t.CryptInf != nil {
 			size := len(beat)
 			buf0 := make([]byte, 8*size, 8*size)
@@ -201,7 +206,7 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 		rcv_len, err := con.Read(m_byte[src_len:])
 		if err != nil {
 			con.Close()
-			log.Println("con id:", serial, " lost connect")
+			log.Println("server[", t.Serial, "] close connect:", serial)
 			t.removeTcpConn(serial)
 			if t.ObserverInf != nil { //观察存在时
 				t.ObserverInf.HDisConnect(serial)
@@ -216,6 +221,8 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 		tocast := t.Pool.GetEntity(len(t.ToBroadCast), 1024)
 
 		s_size, c_size, serial0, need_beat := t.ParserInf.Parser(t.Serial, serial, hd, toself, tocast, &src_len, t.CryptInf)
+
+		log.Println(t.Serial, "parser:", s_size, c_size, serial0, need_beat)
 
 		if need_beat && beat_ack != nil {
 			t.sendBeatAck(con, beat_ack)
@@ -260,6 +267,8 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 
 	serial := data.TargetConSerial
 	src, _ := data.DataStore.Bytes()
+
+	log.Println(t.Serial, "write:", src[0:data.DataLength])
 
 	if v, ok := t.TcpClientCons.Load(serial); ok {
 		if con, ok := v.(net.Conn); ok {
@@ -309,6 +318,8 @@ func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con net.Conn) (bool, 
 
 	serial := data.TargetConSerial
 	src, _ := data.DataStore.Bytes()
+
+	log.Println(t.Serial, "write:", src[0:data.DataLength])
 
 	if t.CryptInf != nil {
 
@@ -393,11 +404,12 @@ func (t *TcpServerEntity) newComeConHandle() {
 
 		if ok, serial, tp := t.AckInf.AckSerial(con, buf, t.CryptInf); ok {
 			if err := t.AckInf.AckConnect(con, serial, buf, t.CryptInf); err == nil {
+				log.Println("server[", t.Serial, "] get new connect:", serial)
 				if tp == 1 {
 					t.addMontitor(serial, con)
 				} else {
 					t.addTcpConn(serial, con)
-					t.createReadroutine(con, serial)
+					go t.createReadroutine(con, serial)
 					if t.WriteConrutionSize < 1 {
 						go t.writeDataEachConRoutine(serial, con)
 					}

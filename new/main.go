@@ -5,6 +5,7 @@ package main
 */
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -28,12 +29,13 @@ var APP_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "app"}}`)
 var ALL_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "all"}}`)
 var NONE_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "none"}}`)
 var WEB_ACCEPT []byte = []byte("WEB_ACCEPT")
+var WEB_ACCEPT_ENCRY []byte = []byte("C0VVD0XFQ0QV=AV=")
 
 //心跳实例化
 type BeatPackageEntity struct {
 	Beat     []byte
 	AckBeat  []byte
-	Interval int64
+	Interval int64 //为0时则只被动响应，不发送心跳
 }
 
 func (b *BeatPackageEntity) BeatBytes() []byte {
@@ -58,7 +60,7 @@ func contains(src, substr []byte, src_len, substr_len int) (bool, int) {
 	if substr_len > src_len {
 		return ret, k
 	}
-	for i < src_len-substr_len {
+	for i <= src_len-substr_len {
 		if src[i] == substr[0] {
 			for j := 1; j < substr_len; j++ {
 				i += 1
@@ -286,6 +288,8 @@ func (a *AckEntity) AckConnect(con net.Conn, serial string, buf *MemEntity, v Cr
 		bytes, p0 := tmp.Bytes()
 		status, _, d := v.EncryPt(data, bytes, size, p0)
 		if status {
+			bytes = WEB_ACCEPT_ENCRY // just for test, remove this line in release version
+			d = len(bytes)           // just for test, remove this line in release version
 			_, err = con.Write(bytes[0:d])
 		} else {
 			err = errors.New("加密失败")
@@ -336,6 +340,7 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 	}
 
 	if v != nil {
+
 		ok, k, dlen := v.DeCrypt(bytes, dst_str, dlen, piece)
 		if !ok {
 			log.Println("解密失败", server_serial)
@@ -343,6 +348,7 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 		}
 
 		ok, bi := contains(dst_str, ALIVE, dlen, len(ALIVE))
+
 		for ok {
 			beat = true
 			removeBeat(dst_str, bi, dlen, len(ALIVE))
@@ -357,6 +363,8 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 			for i := 0; i < ca_size; i++ {
 				tbyte[i] = dst_str[i]
 			}
+
+			fmt.Println(string(tbyte[0:ca_size]))
 
 			for i := 0; i < dlen-ca_size; i++ {
 				dst_str[i] = dst_str[i+ca_size]
@@ -375,7 +383,9 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 		}
 
 	} else {
+
 		ok, bi := contains(bytes, ALIVE, dlen, len(ALIVE))
+
 		for ok {
 			beat = true
 			removeBeat(bytes, bi, dlen, len(ALIVE))
@@ -383,18 +393,28 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 			ok, bi = contains(bytes, ALIVE, dlen, len(ALIVE))
 		}
 
-		index := p.checkValidTail(dst_str, dlen)
+		index := p.checkValidTail(bytes, dlen)
+
 		if index > -1 {
 			ca_size = index + 1
 			tbyte, _ := tocast.Bytes()
 			for i := 0; i < ca_size; i++ {
-				tbyte[i] = dst_str[i]
+				tbyte[i] = bytes[i]
 			}
 
+			fmt.Println(string(tbyte[0:ca_size]))
+
 			for j := 0; j < dlen-ca_size; j++ {
-				dst_str[j] = dst_str[j+ca_size]
+				bytes[j] = bytes[j+ca_size]
 			}
+
 			dlen -= ca_size
+		}
+
+		if ok || index > -1 {
+			for i := 0; i < dlen; i++ {
+				src_str[i] = bytes[i]
+			}
 		}
 
 	}
@@ -403,16 +423,45 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 
 }
 
+//微信包结构
+type UdpPackage struct {
+	Message string `json:"message"`
+	Type    string `json:"type"`
+	Serial  string `json:"serial"`
+	From    string `json:"from"`
+}
+
+func (u *UdpPackage) Deseries(js []byte) bool {
+	err := json.Unmarshal(js, u)
+	if err != nil {
+		log.Println("udp包解析失败")
+	}
+	return err == nil
+}
+
 //微信包解析
 type WEIXINPackageParseEntity struct {
 }
 
 //微信接口包解析逻辑。 待添加
 func (w *WEIXINPackageParseEntity) Parser(server_serial, udp_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (int, int, string, bool) {
-	return 0, 0, "", false
+	bytes, _ := src.Bytes()
+	p := UdpPackage{}
+	if p.Deseries(bytes[0:*src_len]) {
+		tcp_serial := p.Serial
+		tc, _ := tocast.Bytes()
+		for i := 0; i < *src_len; i++ {
+			tc[i] = bytes[i]
+		}
+		return 0, *src_len, tcp_serial, false
+	} else {
+		return 0, 0, "", false
+	}
+
 }
 
 func main() {
+
 	pool := MemPool{}
 
 	WEIXIN := UdpServerEntity{}
@@ -424,9 +473,11 @@ func main() {
 		AckBeat:  ALIVE,
 		Interval: 50,
 	}
+
 	GateWay.Init(ConfigInstance.TcpPorts.GateWay, SERVER_GATEWAY, true, 0, 2, 3600, &pool, v,
 		&CryptEntity{},
-		&ConChangeObserverEntity{}, &AckEntity{},
+		&ConChangeObserverEntity{},
+		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	WEB := TcpServerEntity{}
