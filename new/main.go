@@ -29,7 +29,8 @@ var APP_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "app"}}`)
 var ALL_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "all"}}`)
 var NONE_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "none"}}`)
 var WEB_ACCEPT []byte = []byte("WEB_ACCEPT")
-var WEB_ACCEPT_ENCRY []byte = []byte("C0VVD0XFQ0QV=AV=")
+
+//var WEB_ACCEPT_ENCRY []byte = []byte("C0VVD0XFQ0QV=AV=")
 
 //心跳实例化
 type BeatPackageEntity struct {
@@ -288,8 +289,8 @@ func (a *AckEntity) AckConnect(con net.Conn, serial string, buf *MemEntity, v Cr
 		bytes, p0 := tmp.Bytes()
 		status, _, d := v.EncryPt(data, bytes, size, p0)
 		if status {
-			bytes = WEB_ACCEPT_ENCRY // just for test, remove this line in release version
-			d = len(bytes)           // just for test, remove this line in release version
+			//bytes = WEB_ACCEPT_ENCRY // just for test, remove this line in release version
+			//d = len(bytes)           // just for test, remove this line in release version
 			_, err = con.Write(bytes[0:d])
 		} else {
 			err = errors.New("加密失败")
@@ -474,7 +475,7 @@ func main() {
 		Interval: 50,
 	}
 
-	GateWay.Init(ConfigInstance.TcpPorts.GateWay, SERVER_GATEWAY, true, 0, 2, 3600, &pool, v,
+	GateWay.Init(ConfigInstance.TcpPorts.GateWay, SERVER_GATEWAY, true, 0, 3, 3600, &pool, v,
 		&CryptEntity{},
 		&ConChangeObserverEntity{},
 		&AckEntity{},
@@ -490,15 +491,22 @@ func main() {
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
+	WebSocket := WebSocketServerEntity{}
+	WebSocket.Init("WEBSOCKET", 1, 3600, &pool, &WebSocketParse{})
+
 	WEIXIN.AddToDistributeEntity(&GateWay)
 	WEB.AddToDistributeEntity(&GateWay)
 	APP.AddToDistributeEntity(&GateWay)
+	WebSocket.AddToDistributeEntity(&GateWay)
+
 	GateWay.AddToDistributeEntity(&WEB)
 	GateWay.AddToDistributeEntity(&APP)
+	GateWay.AddToDistributeEntity(&WebSocket)
 
 	go WEB.StartListen()
 	go APP.StartListen()
 	go WEIXIN.StartListen()
-	GateWay.StartListen()
+	go GateWay.StartListen()
+	WebSocket.StartListen()
 
 }

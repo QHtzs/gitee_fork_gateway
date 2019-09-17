@@ -1,7 +1,7 @@
 package main
 
 /*
-简单内存池，及其管理器. 内存池内存只有拓开就不会回收
+简单内存池，及其管理器. 内存池内存不会回收
 */
 
 import (
@@ -79,6 +79,16 @@ type MemEntity struct {
 
 func (m *MemEntity) Bytes() ([]byte, int) {
 	return m.Brick.LoadMem(m.Index)
+}
+
+func (m *MemEntity) Copy(ack_time, cp_len int) *MemEntity {
+	src, size := m.Bytes()
+	entity := m.PoolPtr.GetEntity(ack_time, size)
+	dst, _ := entity.Bytes()
+	for i := 0; i < cp_len; i++ {
+		dst[i] = src[i]
+	}
+	return entity
 }
 
 func (m *MemEntity) ReleaseOnece() {

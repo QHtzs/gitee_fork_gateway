@@ -128,6 +128,7 @@ func (u *UdpServerEntity) StartListen() {
 	if err != nil {
 		log.Fatal("Failed to build udp listener")
 	}
+	log.Println(u.Serial, "udp address", udpAddr)
 	for i := 0; i < 4; i++ {
 		go u.writeUdpData()
 	}

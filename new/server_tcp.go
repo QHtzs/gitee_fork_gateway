@@ -431,7 +431,7 @@ func (t *TcpServerEntity) newComeConHandle() {
 //启动程序
 func (t *TcpServerEntity) StartListen() {
 	address := ":" + t.tcpport
-	log.Println(t.Serial, "address", address)
+	log.Println(t.Serial, "tcp address", address)
 	listener, err := net.Listen("tcp", address)
 	t.Listener = listener
 	if err != nil {
