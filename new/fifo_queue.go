@@ -26,6 +26,7 @@ func (q *QueueHandle) Init(qsize int) {
 		q.NotiFy = make(chan int, 1)
 	}
 	q.Size = 0
+	q.DeQueue = list.New()
 	q.MaxSize = qsize
 	q.status = 1
 }
@@ -52,8 +53,11 @@ func (q *QueueHandle) PopData() interface{} {
 		<-q.NotiFy
 	}
 	q.mutex.Lock()
-	ret := q.DeQueue.Remove(q.DeQueue.Front())
-	q.Size += 1
+	var ret interface{} = nil
+	if q.DeQueue.Len() > 0 {
+		ret = q.DeQueue.Remove(q.DeQueue.Front())
+	}
+	q.Size -= 1
 	q.mutex.Unlock()
 	return ret
 }
@@ -62,11 +66,16 @@ type FifoQueue struct {
 	mutex  sync.Mutex
 	deque  map[string]QueueHandle
 	single QueueHandle
+	inited bool
 }
 
 func (f *FifoQueue) Put(serial string, v interface{}) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
+	if !f.inited {
+		f.inited = true
+		f.deque = make(map[string]QueueHandle, 1)
+	}
 	v_, ok := f.deque[serial]
 	if ok {
 		v_.AddData(v)
