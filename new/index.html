@@ -14,12 +14,12 @@
     <input type="button" name="button" id="button" value="提交" onclick="sk_send()"/>
     <script type="text/javascript">
         var sock = null;
-        var wsuri = "ws://127.0.0.1:9999/websocket";
+        var wsuri = "ws://127.0.0.1:9009/websocket";
         sock = new WebSocket(wsuri);
         sock.onmessage = function(e) {
             var result = document.getElementById('result');
             var text = (e.data.text && e.data.text()) || e.data;
-            if(text.text){text = e.text.text();}
+            if(text.text){text = "BLOG, NEED FILEREADER TO DISERIES";}
             result.innerHTML = "收到回复：" + text;
         }
         

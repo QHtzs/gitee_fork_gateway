@@ -2,12 +2,13 @@
 
 <servers version="1" Description="env setting example">
 
-<TcpPorts>
+<Ports>
 <WebClient id="port1">8001</WebClient>
 <GateWay id="port2">8000</GateWay>
 <Control id="port3">9000</Control>
 <UdpPort>9001</UdpPort>
-</TcpPorts>
+<WsPort>9009</WsPort>
+</Ports>
 
 
 <Redis>

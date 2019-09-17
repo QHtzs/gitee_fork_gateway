@@ -25,8 +25,8 @@ type WebSocketServerEntity struct {
 	TimeOutSec  int64            //超时时间
 }
 
-func (w *WebSocketServerEntity) Init(serial string, cap_ int, timeoutsec int64, pool *MemPool, pv PackageParseImpl) {
-	w.port = "9999"
+func (w *WebSocketServerEntity) Init(port, serial string, cap_ int, timeoutsec int64, pool *MemPool, pv PackageParseImpl) {
+	w.port = port
 	w.Serial = serial
 	w.ParseInf = pv
 	w.ToBroadCast = make([]ServerImpl, 0, cap_)
@@ -131,10 +131,13 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 	w.Map.Store(serial, ws)
 	defer w.Map.Delete(serial)
 
+	log.Println(w.Serial, serial, "connect")
+
 	for {
 		length, _ = w.wread(ws, entity)
 
 		if length == -1 {
+			log.Println(w.Serial, serial, "dis connect")
 			break
 		}
 

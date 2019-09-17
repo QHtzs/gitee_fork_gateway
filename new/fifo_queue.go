@@ -5,43 +5,103 @@ import (
 	"sync"
 )
 
+type QueueHandle struct {
+	DeQueue *list.List
+	NotiFy  chan int
+	Size    int
+	MaxSize int
+	mutex   sync.Mutex
+	status  int32
+}
+
+func (q *QueueHandle) Init(qsize int) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	if q.status == 1 {
+		return
+	}
+	if qsize > 0 {
+		q.NotiFy = make(chan int, qsize)
+	} else {
+		q.NotiFy = make(chan int, 1)
+	}
+	q.Size = 0
+	q.MaxSize = qsize
+	q.status = 1
+}
+
+func (q *QueueHandle) AddData(v interface{}) {
+	if q.MaxSize > 0 {
+		q.NotiFy <- 1
+	} else {
+		select {
+		case q.NotiFy <- 1:
+			break
+		default:
+			break
+		}
+	}
+	q.mutex.Lock()
+	q.DeQueue.PushBack(v)
+	q.Size += 1
+	q.mutex.Unlock()
+}
+
+func (q *QueueHandle) PopData() interface{} {
+	if q.Size <= 0 {
+		<-q.NotiFy
+	}
+	q.mutex.Lock()
+	ret := q.DeQueue.Remove(q.DeQueue.Front())
+	q.Size += 1
+	q.mutex.Unlock()
+	return ret
+}
+
 type FifoQueue struct {
 	mutex  sync.Mutex
-	dqueue map[string]*list.List
-	size   int
+	deque  map[string]QueueHandle
+	single QueueHandle
 }
 
 func (f *FifoQueue) Put(serial string, v interface{}) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-	if f.size == 0 { //golang int 不显式赋值则默认为0。
-		f.dqueue = make(map[string]*list.List, 1)
-		f.size = 1
-	}
-	l, ok := f.dqueue[serial]
+	v_, ok := f.deque[serial]
 	if ok {
-		l.PushBack(v)
+		v_.AddData(v)
 	} else {
-		l = list.New()
-		l.PushBack(v)
-		f.dqueue[serial] = l
+		v_ = QueueHandle{}
+		v_.Init(0)
+		v_.AddData(v)
+		f.deque[serial] = v_
 	}
+
 }
 
 func (f *FifoQueue) Get(serial string) interface{} {
 	f.mutex.Lock()
-	defer f.mutex.Unlock()
-	if f.size == 0 { //golang int 不显式赋值则默认为0。
-		f.dqueue = make(map[string]*list.List, 1)
-		f.size = 1
-	}
-	l, ok := f.dqueue[serial]
+	v_, ok := f.deque[serial]
+	f.mutex.Unlock()
+	var v interface{} = nil
 	if ok {
-		if l.Len() <= 0 {
-			return nil
-		} else {
-			return l.Remove(l.Front())
-		}
+		v = v_.PopData()
 	}
-	return nil
+	return v
+}
+
+func (f *FifoQueue) SingelPut(v interface{}) {
+	if f.single.status == 0 {
+		f.single.Init(0)
+	}
+	f.single.AddData(v)
+
+}
+
+func (f *FifoQueue) SingleGet() interface{} {
+	if f.single.status == 0 {
+		f.single.Init(0)
+	}
+	return f.single.PopData()
+
 }

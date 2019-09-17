@@ -12,11 +12,12 @@ import (
 )
 
 type TtgTcpPorts struct {
-	XMLName   xml.Name `xml:"TcpPorts"`
+	XMLName   xml.Name `xml:"Ports"`
 	WebClient string   `xml:"WebClient"`
 	GateWay   string   `xml:"GateWay"`
 	Control   string   `xml:"Control"`
 	UdpPort   string   `xml:"UdpPort"`
+	WsPort    string   `xml:"WsPort"`
 }
 
 type TtgBeatPackages struct {
@@ -46,7 +47,7 @@ type TtgOtherCfg struct {
 
 type Configure struct {
 	XMLName      xml.Name        `xml:"servers"`
-	TcpPorts     TtgTcpPorts     `xml:"TcpPorts"`
+	Ports        TtgTcpPorts     `xml:"Ports"`
 	BeatPackages TtgBeatPackages `xml:"BeatPackages"`
 	RedisCfg     TtgRedisCfg     `xml:"Redis"`
 	Other        TtgOtherCfg     `xml:"Other"`

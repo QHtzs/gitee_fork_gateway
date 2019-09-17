@@ -20,6 +20,7 @@ const (
 	SERVER_WEB         = "WEB"
 	SERVER_APP         = "APP"
 	SERVER_GATEWAY     = "GATEWAY"
+	WEBSOCKET          = "WEBSOCKET"
 )
 
 var ALIVE []byte = []byte(ConfigInstance.BeatPackages.GateWay)
@@ -466,7 +467,7 @@ func main() {
 	pool := MemPool{}
 
 	WEIXIN := UdpServerEntity{}
-	WEIXIN.Init(ConfigInstance.TcpPorts.UdpPort, "微信", 1, &pool, nil, &WEIXINPackageParseEntity{})
+	WEIXIN.Init(ConfigInstance.Ports.UdpPort, "微信", 1, &pool, nil, &WEIXINPackageParseEntity{})
 
 	GateWay := TcpServerEntity{}
 	v := &BeatPackageEntity{
@@ -475,24 +476,24 @@ func main() {
 		Interval: 50,
 	}
 
-	GateWay.Init(ConfigInstance.TcpPorts.GateWay, SERVER_GATEWAY, true, 0, 3, 3600, &pool, v,
+	GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, true, 0, 3, 3600, &pool, v,
 		&CryptEntity{},
 		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	WEB := TcpServerEntity{}
-	WEB.Init(ConfigInstance.TcpPorts.WebClient, SERVER_WEB, false, 5, 1, 3600, &pool, nil, nil, nil,
+	WEB.Init(ConfigInstance.Ports.WebClient, SERVER_WEB, false, 5, 1, 3600, &pool, nil, nil, nil,
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	APP := TcpServerEntity{}
-	APP.Init(ConfigInstance.TcpPorts.Control, SERVER_APP, false, 5, 1, 3600, &pool, nil, nil, nil,
+	APP.Init(ConfigInstance.Ports.Control, SERVER_APP, false, 5, 1, 3600, &pool, nil, nil, nil,
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	WebSocket := WebSocketServerEntity{}
-	WebSocket.Init("WEBSOCKET", 1, 3600, &pool, &WebSocketParse{})
+	WebSocket.Init(ConfigInstance.Ports.WsPort, WEBSOCKET, 1, 3600, &pool, &WebSocketParse{})
 
 	WEIXIN.AddToDistributeEntity(&GateWay)
 	WEB.AddToDistributeEntity(&GateWay)

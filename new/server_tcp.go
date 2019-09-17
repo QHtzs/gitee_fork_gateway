@@ -62,7 +62,7 @@ func (t *TcpServerEntity) GetSerial() string {
 
 func (t *TcpServerEntity) AddDataForWrite(data DataWrapper) {
 	if t.WriteConrutionSize > 0 {
-		t.MemQueue.Put("_$allShared", data)
+		t.MemQueue.SingelPut(data)
 	} else {
 		t.MemQueue.Put(data.TargetConSerial, data)
 	}
@@ -176,7 +176,7 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 				}
 			}
 			t.rw_mutex.RUnlock()
-			time.Sleep(time.Duration(freq*500) * time.Microsecond)
+			time.Sleep(time.Duration(freq*800) * time.Microsecond)
 		}
 
 	}
@@ -358,7 +358,7 @@ func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con net.Conn) (bool, 
 //多个连接共享固定数量的conroutine进行写入
 func (t *TcpServerEntity) writeDataSharePool() {
 	for {
-		data := t.MemQueue.Get("_$allShared")
+		data := t.MemQueue.SingleGet()
 		if data == nil {
 			continue
 		}
