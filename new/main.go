@@ -25,13 +25,11 @@ const (
 
 var ALIVE []byte = []byte(ConfigInstance.BeatPackages.GateWay)
 var SLEN int = len(ALIVE)
-var WEB_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "web"}}`)
-var APP_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "app"}}`)
-var ALL_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "all"}}`)
+var WEB_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "web" }}`)
+var APP_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "app" }}`)
+var ALL_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "all" }}`)
 var NONE_UPDATE []byte = []byte(`{"Gate_UPDATE": {"mode": "none"}}`)
 var WEB_ACCEPT []byte = []byte("WEB_ACCEPT")
-
-//var WEB_ACCEPT_ENCRY []byte = []byte("C0VVD0XFQ0QV=AV=")
 
 //心跳实例化
 type BeatPackageEntity struct {
@@ -57,30 +55,23 @@ type CryptEntity struct {
 
 func contains(src, substr []byte, src_len, substr_len int) (bool, int) {
 	ret := false
-	i := 0
-	k := 0
+
 	if substr_len > src_len {
-		return ret, k
+		return ret, 0
 	}
-	for i <= src_len-substr_len {
+
+	for i := 0; i < src_len-substr_len+1; i++ {
 		if src[i] == substr[0] {
-			for j := 1; j < substr_len; j++ {
-				i += 1
-				if src[i] == substr[i] {
-					if j+1 == substr_len {
-						k = i - j
-						ret = true
-						return ret, k
-					}
-				} else {
-					break
-				}
+			ret = true
+			for j := 1; j < substr_len && ret; j++ {
+				ret = src[i+j] == substr[j]
 			}
-		} else {
-			i += 1
+			if ret {
+				return ret, i
+			}
 		}
 	}
-	return ret, k
+	return ret, 0
 }
 
 func removeBeat(src []byte, index, src_size, sub_size int) {
@@ -114,43 +105,29 @@ func trim(src []byte, src_len int, ch byte) int {
 }
 
 func (c *CryptEntity) EncryPt(src, dst []byte, src_len, dst_buff_len int) (bool, int, int) {
-	var buf []byte = nil
-	var dbuf []byte = nil
-
-	if (src_len+2)*4/3 > dst_buff_len { //dst buff not enough
-		return false, 0, 0
-	}
 
 	k := src_len % 3
 
 	if k > 0 {
-		src_len -= k
-		buf = make([]byte, 3, 3)
-		dbuf = make([]byte, 4, 4)
-		for i := 0; i < 3; i++ {
-			if i < k {
-				buf[i] = src[src_len+i]
-			} else {
-				buf[i] = ' '
-			}
+		k = 3 - k
+		for i := 0; i < k; i++ {
+			src[src_len+i] = 32
 		}
+		src_len += k
+	}
+
+	if src_len*4/3 > dst_buff_len { //dst buff not enough
+		return false, 0, 0
 	}
 
 	dlen := EncryPt(src, dst, src_len)
-
-	if k > 0 {
-		tmp := EncryPt(buf, dbuf, 3)
-		for i := 0; i < tmp; i++ {
-			dst[dlen+i] = dbuf[i]
-		}
-		dlen += tmp
-	}
 
 	return true, src_len, dlen
 
 }
 
 func (c *CryptEntity) DeCrypt(src, dst []byte, src_len, dst_buff_len int) (bool, int, int) {
+
 	if src_len*3/4 > dst_buff_len { //dst buff not enough
 		return false, 0, 0
 	}
@@ -159,9 +136,11 @@ func (c *CryptEntity) DeCrypt(src, dst []byte, src_len, dst_buff_len int) (bool,
 	src_len -= k
 
 	dlen := DeCrypt(src, dst, src_len)
+
 	for i := 0; i < k; i++ {
 		src[i] = src[i+src_len]
 	}
+
 	return true, k, dlen
 }
 
@@ -172,6 +151,7 @@ type ConChangeObserverEntity struct {
 func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) {
 	web := false
 	app := false
+
 	for _, s := range vs {
 		if s.SerialIsActivity(serial) {
 			if s.GetSerial() == SERVER_WEB {
@@ -181,6 +161,15 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 			}
 		}
 	}
+
+	if v.SerialIsActivity(serial) {
+		if v.GetSerial() == SERVER_WEB {
+			web = true
+		} else if v.GetSerial() == SERVER_APP {
+			app = true
+		}
+	}
+
 	var bytes []byte
 	if web && app {
 		bytes = ALL_UPDATE
@@ -196,9 +185,11 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 	e := entity.PoolPtr.GetEntity(1, piece)
 	buf, _ := e.Bytes()
 	size := len(bytes)
+
 	for i := 0; i < size; i++ {
 		buf[i] = bytes[i]
 	}
+
 	data := DataWrapper{
 		DataStore:       e,
 		UdpAddr:         nil,
@@ -206,7 +197,13 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 		TargetConSerial: serial,
 		CreateUnixSec:   time.Now().Unix(),
 	}
-	v.AddDataForWrite(data)
+
+	//推送给GATEWAY
+	for _, s := range vs {
+		if s.GetSerial() == SERVER_GATEWAY {
+			s.AddDataForWrite(data)
+		}
+	}
 }
 
 func (c *ConChangeObserverEntity) SDisConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) {
@@ -256,6 +253,14 @@ func (a *AckEntity) AckSerial(con net.Conn, buf *MemEntity, v CryptImpl) (bool, 
 
 	if size < 8 {
 		return false, "", 0
+	}
+
+	for size > 8 {
+		if data[size-1] == 32 || data[size-1] == 0 {
+			size -= 1
+		} else {
+			break
+		}
 	}
 
 	if data[0] == 'M' && data[1] == 'O' && data[2] == 'N' {
@@ -322,104 +327,87 @@ func (p *TcpPackageParseEntity) checkValidTail(bys []byte, l int) int {
 }
 
 func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (int, int, string, bool) {
-	src_str, piece := src.Bytes()
+
+	bytes, piece := src.Bytes()
+
 	beat := false
 	s_size := 0
 	ca_size := 0
 	serial := tcp_serial
+	left_len := 0
+
+	if *src_len == 0 {
+		return 0, 0, serial, beat
+	}
 
 	entity0 := src.PoolPtr.GetEntity(1, piece)
 	entity1 := src.PoolPtr.GetEntity(1, piece)
 	defer entity0.FullRelease()
 	defer entity1.FullRelease()
 
-	bytes, _ := entity0.Bytes()
-	dst_str, _ := entity1.Bytes()
+	cwp, _ := entity0.Bytes()
+	cdt, _ := entity1.Bytes()
 	dlen := *src_len
+	ok := false
 
-	for i := 0; i < dlen; i++ {
-		bytes[i] = src_str[i]
+	if v == nil {
+		for i := 0; i < dlen; i++ {
+			cdt[i] = bytes[i]
+		}
+	} else {
+		for i := 0; i < dlen; i++ {
+			cwp[i] = bytes[i]
+		}
 	}
 
 	if v != nil {
 
-		ok, k, dlen := v.DeCrypt(bytes, dst_str, dlen, piece)
+		ok, left_len, dlen = v.DeCrypt(cwp, cdt, dlen, piece)
+
 		if !ok {
 			log.Println("解密失败", server_serial)
 			return 0, 0, serial, beat
 		}
-
-		ok, bi := contains(dst_str, ALIVE, dlen, len(ALIVE))
-
-		for ok {
-			beat = true
-			removeBeat(dst_str, bi, dlen, len(ALIVE))
-			dlen -= len(ALIVE)
-			ok, bi = contains(dst_str, ALIVE, dlen, len(ALIVE))
-		}
-
-		index := p.checkValidTail(dst_str, dlen)
-		if index > -1 {
-			ca_size = index + 1
-			tbyte, _ := tocast.Bytes()
-			for i := 0; i < ca_size; i++ {
-				tbyte[i] = dst_str[i]
-			}
-
-			fmt.Println(string(tbyte[0:ca_size]))
-
-			for i := 0; i < dlen-ca_size; i++ {
-				dst_str[i] = dst_str[i+ca_size]
-			}
-
-			dlen -= ca_size
-		}
-
-		if ca_size > 0 || ok {
-			_, _, elen := v.EncryPt(dst_str, src_str, dlen, piece)
-			for i := 0; i < k; i++ {
-				src_str[elen+i] = bytes[i]
-			}
-
-			dlen = elen + k
-		}
-
-	} else {
-
-		ok, bi := contains(bytes, ALIVE, dlen, len(ALIVE))
-
-		for ok {
-			beat = true
-			removeBeat(bytes, bi, dlen, len(ALIVE))
-			dlen -= len(ALIVE)
-			ok, bi = contains(bytes, ALIVE, dlen, len(ALIVE))
-		}
-
-		index := p.checkValidTail(bytes, dlen)
-
-		if index > -1 {
-			ca_size = index + 1
-			tbyte, _ := tocast.Bytes()
-			for i := 0; i < ca_size; i++ {
-				tbyte[i] = bytes[i]
-			}
-
-			fmt.Println(string(tbyte[0:ca_size]))
-
-			for j := 0; j < dlen-ca_size; j++ {
-				bytes[j] = bytes[j+ca_size]
-			}
-
-			dlen -= ca_size
-		}
-
-		if ok || index > -1 {
-			for i := 0; i < dlen; i++ {
-				src_str[i] = bytes[i]
-			}
-		}
-
 	}
+
+	ok, bi := contains(cdt, ALIVE, dlen, len(ALIVE))
+	for ok {
+		beat = true
+		removeBeat(cdt, bi, dlen, len(ALIVE))
+		dlen -= len(ALIVE)
+		ok, bi = contains(cdt, ALIVE, dlen, len(ALIVE))
+	}
+
+	index := p.checkValidTail(cdt, dlen)
+
+	if index > -1 {
+		ca_size = index + 1
+		tbyte, _ := tocast.Bytes()
+
+		for i := 0; i < ca_size; i++ {
+			tbyte[i] = cdt[i]
+		}
+
+		for i := 0; i < dlen-ca_size; i++ {
+			cdt[i] = cdt[i+ca_size]
+		}
+		dlen -= ca_size
+	}
+
+	if v == nil {
+		for i := 0; i < dlen; i++ {
+			bytes[i] = cdt[i]
+		}
+	} else {
+		if dlen > 0 {
+			_, _, dlen = v.EncryPt(cdt, bytes, dlen, piece)
+		}
+		for i := 0; i < left_len; i++ {
+			bytes[dlen+i] = cwp[i]
+		}
+		dlen += left_len
+	}
+
 	*src_len = dlen
 	return s_size, ca_size, serial, beat
 
@@ -476,24 +464,26 @@ func main() {
 		Interval: 50,
 	}
 
-	GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, true, 0, 3, 3600, &pool, v,
+	GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, true, 0, 3, 600, &pool, v,
 		&CryptEntity{},
 		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	WEB := TcpServerEntity{}
-	WEB.Init(ConfigInstance.Ports.WebClient, SERVER_WEB, false, 5, 1, 3600, &pool, nil, nil, nil,
+	WEB.Init(ConfigInstance.Ports.WebClient, SERVER_WEB, false, 5, 1, 600, &pool, nil, nil,
+		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	APP := TcpServerEntity{}
-	APP.Init(ConfigInstance.Ports.Control, SERVER_APP, false, 5, 1, 3600, &pool, nil, nil, nil,
+	APP.Init(ConfigInstance.Ports.Control, SERVER_APP, false, 5, 1, 600, &pool, nil, nil,
+		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	WebSocket := WebSocketServerEntity{}
-	WebSocket.Init(ConfigInstance.Ports.WsPort, WEBSOCKET, 1, 3600, &pool, &WebSocketParse{})
+	WebSocket.Init(ConfigInstance.Ports.WsPort, WEBSOCKET, 1, 600, &pool, &WebSocketParse{})
 
 	WEIXIN.AddToDistributeEntity(&GateWay)
 	WEB.AddToDistributeEntity(&GateWay)
@@ -511,3 +501,7 @@ func main() {
 	WebSocket.StartListen()
 
 }
+
+/*
+断线快速连接后， （断开，连接）状态会发两次，由于异步操作，断开被触发后，由于快速连接，当执行获取状态时，连接为非断开，故连续发两次一样的数据
+*/

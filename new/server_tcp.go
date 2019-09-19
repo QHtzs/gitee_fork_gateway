@@ -199,11 +199,13 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 	for {
 
 		if src_len >= 1024 {
-			log.Println("warning:数据丢包严重，或者选取buf长度不够")
+			log.Println("warning:数据丢包严重，或者选取buf长度不够 `buf清空`")
 			src_len = 0
 		}
 
 		rcv_len, err := con.Read(m_byte[src_len:])
+		src_len += rcv_len
+
 		if err != nil {
 			con.Close()
 			log.Println("server[", t.Serial, "] close connect:", serial)
@@ -215,14 +217,16 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 			break
 		}
 
-		src_len += rcv_len
+		if rcv_len == 0 {
+			continue
+		}
 
 		toself := t.Pool.GetEntity(1, 1024)
 		tocast := t.Pool.GetEntity(len(t.ToBroadCast), 1024)
 
 		s_size, c_size, serial0, need_beat := t.ParserInf.Parser(t.Serial, serial, hd, toself, tocast, &src_len, t.CryptInf)
 
-		log.Println(t.Serial, "parser:", s_size, c_size, serial0, need_beat)
+		log.Println(t.Serial, "parser:", s_size, c_size, serial0, need_beat, src_len)
 
 		if need_beat && beat_ack != nil {
 			t.sendBeatAck(con, beat_ack)
@@ -268,7 +272,7 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 	serial := data.TargetConSerial
 	src, _ := data.DataStore.Bytes()
 
-	log.Println(t.Serial, "write:", src[0:data.DataLength])
+	log.Println(t.Serial, "write:", string(src[0:data.DataLength]))
 
 	if v, ok := t.TcpClientCons.Load(serial); ok {
 		if con, ok := v.(net.Conn); ok {
@@ -312,6 +316,7 @@ func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con net.Conn) (bool, 
 	ret := false
 	var err error = nil
 	if time.Now().Unix()-data.CreateUnixSec > t.TimeOutSec {
+		log.Println("timeout:", t.TimeOutSec)
 		ret = true
 		return ret, err
 	}
@@ -319,7 +324,7 @@ func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con net.Conn) (bool, 
 	serial := data.TargetConSerial
 	src, _ := data.DataStore.Bytes()
 
-	log.Println(t.Serial, "write:", src[0:data.DataLength])
+	log.Println(t.Serial, "s write:", string(src[0:data.DataLength]))
 
 	if t.CryptInf != nil {
 
@@ -409,14 +414,17 @@ func (t *TcpServerEntity) newComeConHandle() {
 					t.addMontitor(serial, con)
 				} else {
 					t.addTcpConn(serial, con)
-					go t.createReadroutine(con, serial)
-					if t.WriteConrutionSize < 1 {
-						go t.writeDataEachConRoutine(serial, con)
-					}
+
 					if t.ObserverInf != nil {
 						t.ObserverInf.HNewConnect(serial)
 						t.ObserverInf.SNewConnect(serial, buf, t, t.ToBroadCast...)
 					}
+
+					go t.createReadroutine(con, serial)
+					if t.WriteConrutionSize < 1 {
+						go t.writeDataEachConRoutine(serial, con)
+					}
+
 				}
 			} else {
 				con.Close()

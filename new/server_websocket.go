@@ -23,6 +23,7 @@ type WebSocketServerEntity struct {
 	MemQueue    chan DataWrapper //消息
 	Map         sync.Map         //x
 	TimeOutSec  int64            //超时时间
+
 }
 
 func (w *WebSocketServerEntity) Init(port, serial string, cap_ int, timeoutsec int64, pool *MemPool, pv PackageParseImpl) {
@@ -121,12 +122,14 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 	bytes[0] = 'W'
 	bytes[1] = 'E'
 	bytes[2] = 'B'
-	bytes[3] = 'A'
-	bytes[4] = 'C'
+	bytes[3] = '_'
+	bytes[4] = 'A'
 	bytes[5] = 'C'
-	bytes[6] = 'P'
-	bytes[7] = 'T'
-	w.wwrite(ws, entity, 8)
+	bytes[6] = 'C'
+	bytes[7] = 'E'
+	bytes[8] = 'P'
+	bytes[9] = 'T'
+	w.wwrite(ws, entity, 10)
 
 	w.Map.Store(serial, ws)
 	defer w.Map.Delete(serial)
