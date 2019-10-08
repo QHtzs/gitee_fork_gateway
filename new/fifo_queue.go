@@ -46,8 +46,8 @@ func (q *QueueHandle) AddData(v interface{}) {
 		}
 	}
 	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	q.DeQueue.PushBack(v)
-	q.mutex.Unlock()
 }
 
 func (q *QueueHandle) PopData() interface{} {
@@ -56,17 +56,18 @@ func (q *QueueHandle) PopData() interface{} {
 	}
 
 	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
 	var ret interface{} = nil
 	if q.DeQueue.Len() > 0 {
 		ret = q.DeQueue.Remove(q.DeQueue.Front())
 	}
-	q.mutex.Unlock()
 	return ret
 }
 
 type FifoQueue struct {
 	mutex  sync.Mutex
-	deque  map[string]QueueHandle
+	deque  map[string]*QueueHandle //use pointer to avoid copy, and ensure share the same mutex for QueueHandle element
 	single QueueHandle
 	inited bool
 }
@@ -76,18 +77,18 @@ func (f *FifoQueue) Put(serial string, v interface{}) {
 	defer f.mutex.Unlock()
 	if !f.inited {
 		f.inited = true
-		f.deque = make(map[string]QueueHandle, 1)
+		f.deque = make(map[string]*QueueHandle, 1)
 	}
 	v_, ok := f.deque[serial]
 	if ok {
+		v_.Init(0)
 		v_.AddData(v)
 	} else {
-		v_ = QueueHandle{status: false}
+		v_ = &QueueHandle{status: false}
 		v_.Init(0)
 		v_.AddData(v)
 		f.deque[serial] = v_
 	}
-
 }
 
 func (f *FifoQueue) Get(serial string) interface{} {
@@ -104,17 +105,12 @@ func (f *FifoQueue) Get(serial string) interface{} {
 }
 
 func (f *FifoQueue) SingelPut(v interface{}) {
-	if !f.single.status {
-		f.single.Init(0)
-	}
+	f.single.Init(0)
 	f.single.AddData(v)
 
 }
 
 func (f *FifoQueue) SingleGet() interface{} {
-	if !f.single.status {
-		f.single.Init(0)
-	}
+	f.single.Init(0)
 	return f.single.PopData()
-
 }

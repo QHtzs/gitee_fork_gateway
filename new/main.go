@@ -464,20 +464,20 @@ func main() {
 		Interval: 50,
 	}
 
-	GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, true, 0, 3, 600, &pool, v,
+	GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, true, 15000, 0, 3, 600, &pool, v,
 		&CryptEntity{},
 		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	WEB := TcpServerEntity{}
-	WEB.Init(ConfigInstance.Ports.WebClient, SERVER_WEB, false, 5, 1, 600, &pool, nil, nil,
+	WEB.Init(ConfigInstance.Ports.WebClient, SERVER_WEB, false, 15000, 5, 1, 600, &pool, nil, nil,
 		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	APP := TcpServerEntity{}
-	APP.Init(ConfigInstance.Ports.Control, SERVER_APP, false, 5, 1, 600, &pool, nil, nil,
+	APP.Init(ConfigInstance.Ports.Control, SERVER_APP, false, 15000, 5, 1, 600, &pool, nil, nil,
 		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})

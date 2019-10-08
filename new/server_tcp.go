@@ -18,6 +18,7 @@ type TcpServerEntity struct {
 	LastBeatSend       map[string]*int64     //上一次发送心跳包时间(soketfd:time)
 	MemQueue           FifoQueue             //数据存放队列
 	ChanQueue          chan net.Conn         //chan消息队列
+	ChanRoutineStatus  [100]bool             //灵活拓展routine用于应对，瞬时多个连接, 不加锁粗略使用
 	Pool               *MemPool              //内存池
 	MonitorCons        sync.Map              //监控某个socket的con
 	TcpClientCons      sync.Map              //tcp连接
@@ -29,11 +30,11 @@ type TcpServerEntity struct {
 	tcpport            string                //服务开启地址
 }
 
-func (t *TcpServerEntity) Init(port, serial string, needfb bool, writeConrutionSize, broadCastSize int, timeoutsec int64, pool *MemPool, bv BeatPackageImpl, cv CryptImpl, ov ConChangeObserverImpl, av AckImpl, pv PackageParseImpl) {
+func (t *TcpServerEntity) Init(port, serial string, needfb bool, con_queue_pool_size, writeConrutionSize, broadCastSize int, timeoutsec int64, pool *MemPool, bv BeatPackageImpl, cv CryptImpl, ov ConChangeObserverImpl, av AckImpl, pv PackageParseImpl) {
 	t.tcpport = port
 	t.Serial = serial
 	t.WriteConrutionSize = writeConrutionSize
-	t.ChanQueue = make(chan net.Conn, 1000)
+	t.ChanQueue = make(chan net.Conn, con_queue_pool_size) //该参数比较重要，实际应用中需要调
 	t.TimeOutSec = timeoutsec
 	t.BeatInf = bv
 	t.CryptInf = cv
@@ -42,7 +43,7 @@ func (t *TcpServerEntity) Init(port, serial string, needfb bool, writeConrutionS
 	t.ParserInf = pv
 	t.NeedFeedBack = needfb
 	t.Pool = pool
-
+	t.MemQueue = FifoQueue{}
 	t.ToBroadCast = make([]ServerImpl, 0, broadCastSize)
 	t.LastBeatSend = make(map[string]*int64, 1000)
 }
@@ -192,6 +193,7 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 	defer hd.ReleaseOnece()
 	m_byte, _ := hd.Bytes()
 	src_len := 0
+	tmp_bool := true
 	var beat_ack []byte = nil
 	if t.BeatInf != nil {
 		beat_ack = t.BeatInf.BeatAckBytes()
@@ -217,45 +219,50 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 			break
 		}
 
-		if rcv_len == 0 {
+		if rcv_len == 0 && src_len < 64 {
 			continue
 		}
 
-		toself := t.Pool.GetEntity(1, 1024)
-		tocast := t.Pool.GetEntity(len(t.ToBroadCast), 1024)
+		tmp_bool = true
+		for tmp_bool {
+			toself := t.Pool.GetEntity(1, 1024)
+			tocast := t.Pool.GetEntity(len(t.ToBroadCast), 1024)
 
-		s_size, c_size, serial0, need_beat := t.ParserInf.Parser(t.Serial, serial, hd, toself, tocast, &src_len, t.CryptInf)
+			s_size, c_size, serial0, need_beat := t.ParserInf.Parser(t.Serial, serial, hd, toself, tocast, &src_len, t.CryptInf)
 
-		log.Println(t.Serial, "parser:", s_size, c_size, serial0, need_beat, src_len)
+			tmp_bool = s_size > 0 || c_size > 0 || need_beat
 
-		if need_beat && beat_ack != nil {
-			t.sendBeatAck(con, beat_ack)
-		}
+			log.Println(t.Serial, "parser:", s_size, c_size, serial0, need_beat, src_len)
 
-		if s_size > 0 {
-			s_write := DataWrapper{
-				DataStore:       toself,
-				UdpAddr:         nil,
-				DataLength:      s_size,
-				TargetConSerial: serial,
-				CreateUnixSec:   time.Now().Unix(),
+			if need_beat && beat_ack != nil {
+				t.sendBeatAck(con, beat_ack)
 			}
-			t.AddDataForWrite(s_write)
-		} else {
-			toself.FullRelease()
-		}
 
-		if c_size > 0 {
-			c_write := DataWrapper{
-				DataStore:       tocast,
-				UdpAddr:         nil,
-				DataLength:      c_size,
-				TargetConSerial: serial0,
-				CreateUnixSec:   time.Now().Unix(),
+			if s_size > 0 {
+				s_write := DataWrapper{
+					DataStore:       toself,
+					UdpAddr:         nil,
+					DataLength:      s_size,
+					TargetConSerial: serial,
+					CreateUnixSec:   time.Now().Unix(),
+				}
+				t.AddDataForWrite(s_write)
+			} else {
+				toself.FullRelease()
 			}
-			t.BroadCastData(c_write)
-		} else {
-			tocast.FullRelease()
+
+			if c_size > 0 {
+				c_write := DataWrapper{
+					DataStore:       tocast,
+					UdpAddr:         nil,
+					DataLength:      c_size,
+					TargetConSerial: serial0,
+					CreateUnixSec:   time.Now().Unix(),
+				}
+				t.BroadCastData(c_write)
+			} else {
+				tocast.FullRelease()
+			}
 		}
 	}
 }
@@ -400,13 +407,15 @@ func (t *TcpServerEntity) writeDataEachConRoutine(serial string, con net.Conn) {
 	}
 }
 
-//处理新来的连接
-func (t *TcpServerEntity) newComeConHandle() {
+//处理新来的连接, 灵活拓展
+func (t *TcpServerEntity) newComeConHandle(handle_id int) {
 	buf := t.Pool.GetEntity(1, 1024)
 	defer buf.FullRelease()
 	for {
+		if handle_id >= 0 && !t.ChanRoutineStatus[handle_id] {
+			break
+		}
 		con := <-t.ChanQueue
-
 		if ok, serial, tp := t.AckInf.AckSerial(con, buf, t.CryptInf); ok {
 			if err := t.AckInf.AckConnect(con, serial, buf, t.CryptInf); err == nil {
 				log.Println("server[", t.Serial, "] get new connect:", serial)
@@ -449,15 +458,39 @@ func (t *TcpServerEntity) StartListen() {
 		go t.writeDataSharePool()
 	}
 	for i := 0; i < 5; i++ {
-		go t.newComeConHandle()
+		go t.newComeConHandle(-1) //固定5个协程
 	}
-
+	index := 0
+	num := 0
+	sample_time := time.Now().Unix()
 	for {
+		if index < 0 {
+			index = 0
+		}
 		con, err := t.Listener.Accept()
 		if err != nil {
 			log.Println("accept failed", err)
 			continue
 		}
-		t.ChanQueue <- con
+		t.ChanQueue <- con //不采用一连接一线程处理，采用chan队列，牺牲部分效率降低开销。
+
+		//弹性增减连接处理函数,不对ChanRoutineStatus加锁
+		num = len(t.ChanQueue) / 100
+		for j := 0; j < num && index < 100; j++ {
+			t.ChanRoutineStatus[index] = true
+			go t.newComeConHandle(index)
+			index += 1
+		}
+
+		if time.Now().Unix()-sample_time > 30 {
+			sample_time = time.Now().Unix()
+			if index > num+1 {
+				for k := num + 1; k < index && k < 100; k++ {
+					t.ChanRoutineStatus[k] = false
+				}
+				index = num + 1
+			}
+		}
+
 	}
 }
