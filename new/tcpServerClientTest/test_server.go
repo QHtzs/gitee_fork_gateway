@@ -84,12 +84,13 @@ func (t *TcpClientTest) Connect() bool {
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", t.Address)
 	con, err := net.DialTCP("tcp", nil, tcpAddr)
 	t.Socket = con
-	fmt.Println(err)
+	fmt.Println("error:", err)
 	return err == nil
 }
 
-func (t *TcpClientTest) Write(data []byte) {
+func (t *TcpClientTest) Write(data []byte) bool {
 	var err error = nil
+	ret := true
 	if t.NeedEbcry {
 		tmp := make([]byte, 2*len(data))
 		ln := EncryPt(data, tmp, len(data))
@@ -98,8 +99,9 @@ func (t *TcpClientTest) Write(data []byte) {
 		_, err = t.Socket.Write(data)
 	}
 	if err != nil {
-		atomic.AddInt64(&LOST_CONNECT, 1)
+		ret = false
 	}
+	return ret
 }
 
 func (t *TcpClientTest) CreateBeat() {
@@ -111,45 +113,62 @@ func (t *TcpClientTest) CreateBeat() {
 	}
 }
 
-func (t *TcpClientTest) Read() string {
+func (t *TcpClientTest) Read() (string, bool) {
 	size, err := t.Socket.Read(t.Buff)
 	if err != nil {
-		return ""
+		atomic.AddInt64(&LOST_CONNECT, 1)
+		atomic.AddInt64(&CONNECTTING_NUM, -1)
+		t.Socket.Close()
+		return "", false
 	}
 	if t.NeedEbcry {
 		length := DeCrypt(t.Buff, t.Buff2, size)
-		return string(t.Buff2[0:length])
+		return string(t.Buff2[0:length]), true
 	} else {
-		return string(t.Buff[0:size])
+		return string(t.Buff[0:size]), true
 	}
-
 }
 
-func (t *TcpClientTest) Start() {
+func (t *TcpClientTest) Start(bbb bool) {
 	bl := t.Connect()
 	if bl {
 		atomic.AddInt64(&CONNECTTING_NUM, 1)
 		t.Write([]byte(t.ID))
-		acp := t.Read()
+		acp, _ := t.Read()
 		fmt.Println(acp)
 
 		go t.CreateBeat()
 
 		go func(tt *TcpClientTest) {
 			for {
-				str := tt.Read()
-				fmt.Println(str, "current con:", atomic.LoadInt64(&CONNECTTING_NUM),
+				str, ok := tt.Read()
+				fmt.Println(tt.ID, ":", str, "current con:", atomic.LoadInt64(&CONNECTTING_NUM),
 					" failed:", atomic.LoadInt64(&FAILED_CONNECT_NUM),
 					" lost connect", atomic.LoadInt64(&LOST_CONNECT))
+				if !ok {
+					break
+				}
 			}
 		}(t)
 
-		go func(tt *TcpClientTest) {
-			for {
-				tt.Write([]byte(`{"a": {"b":"c"}}`))
-				time.Sleep(10 * time.Second)
-			}
-		}(t)
+		if bbb {
+			go func(tt *TcpClientTest) {
+				for {
+					wstr := fmt.Sprintf(`{"time":"%d", "id":"%s", "a": {"b":"c"}}`, time.Now().Unix(), tt.ID)
+					lft := len(wstr) % 3
+					if lft == 1 {
+						wstr += "    "
+					} else if lft == 2 {
+						wstr += " "
+					}
+					ok := tt.Write([]byte(wstr))
+					time.Sleep(20 * time.Second)
+					if !ok {
+						break
+					}
+				}
+			}(t)
+		}
 
 	} else {
 		atomic.AddInt64(&FAILED_CONNECT_NUM, 1)
@@ -181,13 +200,13 @@ func CreateTcps(id string) {
 		Buff2:     make([]byte, 1024),
 	}
 
-	app.Start()
-	web.Start()
-	gateway.Start()
+	app.Start(false)
+	web.Start(false)
+	gateway.Start(true)
 }
 
 func main() {
-	for i := 0; i < 5000; i++ { // num * 3
+	for i := 0; i < 1000; i++ { // num * 3
 		id := "TTG_DEMO_" + strconv.Itoa(i)
 		k := len(id) % 3
 		if k > 0 {
@@ -195,7 +214,7 @@ func main() {
 				id += " "
 			}
 		}
-		go CreateTcps(id) //瞬时效率,测试服务能否快速响应密集连接
+		go CreateTcps(id)
 	}
 	time.Sleep(1 * time.Hour)
 }

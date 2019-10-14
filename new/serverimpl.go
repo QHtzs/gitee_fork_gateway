@@ -51,5 +51,6 @@ type DataWrapper struct {
 	DataLength      int          //数据长度
 	TargetConSerial string       //目标con的serial
 	UdpAddr         *net.UDPAddr //当为udp时UdpAddr为serial
+	SelfId          string       //to self
 	CreateUnixSec   int64        //创建时间
 }

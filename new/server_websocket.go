@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -21,12 +20,12 @@ type WebSocketServerEntity struct {
 	ParseInf    PackageParseImpl //消息解析
 	Pool        *MemPool         //pool
 	MemQueue    chan DataWrapper //消息
-	Map         sync.Map         //x
+	Map         NetConMap        //x
 	TimeOutSec  int64            //超时时间
 
 }
 
-func (w *WebSocketServerEntity) Init(port, serial string, cap_ int, timeoutsec int64, pool *MemPool, pv PackageParseImpl) {
+func (w *WebSocketServerEntity) Init(port, serial string, can_dup bool, cap_ int, timeoutsec int64, pool *MemPool, pv PackageParseImpl) {
 	w.port = port
 	w.Serial = serial
 	w.ParseInf = pv
@@ -34,6 +33,7 @@ func (w *WebSocketServerEntity) Init(port, serial string, cap_ int, timeoutsec i
 	w.MemQueue = make(chan DataWrapper, 100)
 	w.Pool = pool
 	w.TimeOutSec = timeoutsec
+	w.Map.SetAllowDup(can_dup)
 }
 
 func (w *WebSocketServerEntity) AddToDistributeEntity(v ServerImpl) {
@@ -41,7 +41,7 @@ func (w *WebSocketServerEntity) AddToDistributeEntity(v ServerImpl) {
 }
 
 func (w *WebSocketServerEntity) SerialIsActivity(serial string) bool {
-	_, ok := w.Map.Load(serial)
+	ok := w.Map.IsKeyExist(serial)
 	return ok
 }
 
@@ -87,10 +87,21 @@ func (w *WebSocketServerEntity) createWriteConroutine() {
 	for {
 		data := <-w.MemQueue
 		serial := data.TargetConSerial
-		if v, ok := w.Map.Load(serial); ok {
-			con, ok := v.(*websocket.Conn)
-			if ok && time.Now().Unix()-data.CreateUnixSec < w.TimeOutSec {
-				w.wwrite(con, data.DataStore, data.DataLength)
+		self_id := data.SelfId
+		if self_id == "" {
+			w.Map.Range(serial, func(mkey interface{}, mvalue interface{}) bool {
+				con, ok := mvalue.(*websocket.Conn)
+				if ok && time.Now().Unix()-data.CreateUnixSec < w.TimeOutSec {
+					w.wwrite(con, data.DataStore, data.DataLength)
+				}
+				return true
+			})
+		} else {
+			if v, ok := w.Map.Load(serial, self_id); ok {
+				con, ok := v.(*websocket.Conn)
+				if ok && time.Now().Unix()-data.CreateUnixSec < w.TimeOutSec {
+					w.wwrite(con, data.DataStore, data.DataLength)
+				}
 			}
 		}
 		data.DataStore.ReleaseOnece()
@@ -131,9 +142,16 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 	bytes[9] = 'T'
 	w.wwrite(ws, entity, 10)
 
-	w.Map.Store(serial, ws)
-	defer w.Map.Delete(serial)
+	req_addr := ws.Request().RemoteAddr
 
+	defer w.Map.Delete(serial, req_addr)
+	inter, ok := w.Map.LoadOrStore(serial, req_addr, ws)
+	if ok { //与tcp策略不同
+		if mws, ok := inter.(*websocket.Conn); ok {
+			mws.Close()
+		}
+		w.Map.Store(serial, req_addr, ws)
+	}
 	log.Println(w.Serial, serial, "connect")
 
 	for {
@@ -155,6 +173,7 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 				UdpAddr:         nil,
 				DataLength:      s_size,
 				TargetConSerial: serial,
+				SelfId:          req_addr,
 				CreateUnixSec:   time.Now().Unix(),
 			}
 			w.AddDataForWrite(s_write)
@@ -168,6 +187,7 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 				UdpAddr:         nil,
 				DataLength:      c_size,
 				TargetConSerial: serial0,
+				SelfId:          "",
 				CreateUnixSec:   time.Now().Unix(),
 			}
 
@@ -194,18 +214,4 @@ func (w *WebSocketServerEntity) StartListen() {
 	if err := http.ListenAndServe(":"+w.port, nil); err != nil {
 		log.Fatal(err)
 	}
-}
-
-type WebSocketParse struct {
-}
-
-func (w *WebSocketParse) Parser(server_serial, cur_con_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (s_size int, c_size int, serial string, beat bool) {
-	bytes, _ := src.Bytes()
-	sbytes, _ := toself.Bytes()
-	cbytes, _ := tocast.Bytes()
-	for i := 0; i < *src_len; i++ {
-		cbytes[i] = bytes[i]
-		sbytes[i] = bytes[i]
-	}
-	return *src_len, *src_len, cur_con_serial, false
 }

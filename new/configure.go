@@ -45,12 +45,18 @@ type TtgOtherCfg struct {
 	ProUrl      string   `xml:"ProUrl"`
 }
 
+type TtgEncrypt struct {
+	XMLName xml.Name `xml:"Encrypt"`
+	GateWay bool     `xml:"GateWay"`
+}
+
 type Configure struct {
 	XMLName      xml.Name        `xml:"servers"`
 	Ports        TtgTcpPorts     `xml:"Ports"`
 	BeatPackages TtgBeatPackages `xml:"BeatPackages"`
 	RedisCfg     TtgRedisCfg     `xml:"Redis"`
 	Other        TtgOtherCfg     `xml:"Other"`
+	NeedEncrypt  TtgEncrypt      `xml:"Encrypt"`
 	LogFilePath  string          `xml:"LogFilePath"`
 }
 

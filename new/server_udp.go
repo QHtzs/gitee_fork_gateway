@@ -3,10 +3,10 @@ package main
 import (
 	"log"
 	"net"
-	"sync"
 	"time"
 )
 
+//Udp不做连接是否有效认证，只做接收数据格式是否有效
 type UdpServerEntity struct {
 	udpport     string           //udp端口
 	Listener    *net.UDPConn     //udp监听
@@ -16,7 +16,7 @@ type UdpServerEntity struct {
 	ParseInf    PackageParseImpl //消息解析
 	DataQueue   chan DataWrapper //udp地址信息
 	Pool        *MemPool         //pool
-	UdpMap      sync.Map         //存放udp信息
+	UdpMap      NetConMap        //存放udp信息
 }
 
 func (u *UdpServerEntity) Init(port, serial string, cap_ int, pool *MemPool, cv CryptImpl, pv PackageParseImpl) {
@@ -27,6 +27,7 @@ func (u *UdpServerEntity) Init(port, serial string, cap_ int, pool *MemPool, cv 
 	u.ToBroadCast = make([]ServerImpl, 0, cap_)
 	u.Pool = pool
 	u.DataQueue = make(chan DataWrapper, 1000)
+	u.UdpMap.SetAllowDup(false) //UDP无法预知是否断开连接,故一个serial只绑定一个udp客户端地址， dup=false
 }
 
 func (u *UdpServerEntity) AddToDistributeEntity(v ServerImpl) {
@@ -74,6 +75,7 @@ func (u *UdpServerEntity) readUdpData() {
 				UdpAddr:         addr,
 				DataLength:      s_size,
 				TargetConSerial: serial,
+				SelfId:          addr.String(),
 				CreateUnixSec:   time.Now().Unix(),
 			}
 			u.AddDataForWrite(s_write)
@@ -87,6 +89,7 @@ func (u *UdpServerEntity) readUdpData() {
 				UdpAddr:         addr,
 				DataLength:      c_size,
 				TargetConSerial: serial0,
+				SelfId:          "",
 				CreateUnixSec:   time.Now().Unix(),
 			}
 
@@ -96,7 +99,7 @@ func (u *UdpServerEntity) readUdpData() {
 		}
 
 		if len(serial) > 1 {
-			u.UdpMap.Store(serial, addr)
+			u.UdpMap.Store(serial, addr.String(), addr)
 		}
 	}
 }
@@ -109,11 +112,12 @@ func (u *UdpServerEntity) writeUdpData() {
 		if data.UdpAddr != nil {
 			u.Listener.WriteToUDP(bytes[0:data.DataLength], data.UdpAddr)
 		} else {
-			if addr, ok := u.UdpMap.Load(data.TargetConSerial); ok {
-				if udp, ok := addr.(*net.UDPAddr); ok {
+			u.UdpMap.Range(data.TargetConSerial,
+				func(key interface{}, value interface{}) bool {
+					udp, ok := value.(*net.UDPAddr)
 					u.Listener.WriteToUDP(bytes[0:data.DataLength], udp)
-				}
-			}
+					return ok
+				})
 		}
 		data.DataStore.ReleaseOnece()
 	}

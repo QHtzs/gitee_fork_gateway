@@ -21,7 +21,7 @@ type TcpServerEntity struct {
 	ChanRoutineStatus  [100]bool             //灵活拓展routine用于应对，瞬时多个连接, 不加锁粗略使用
 	Pool               *MemPool              //内存池
 	MonitorCons        sync.Map              //监控某个socket的con
-	TcpClientCons      sync.Map              //tcp连接
+	TcpClientCons      NetConMap             //tcp连接
 	Serial             string                //服务序列号
 	TimeOutSec         int64                 //超时时间 秒
 	WriteConrutionSize int                   //写数据的conroution数，少于0则每个tcp连接取一个conroutin，反之则共享WriteConrutionSize个
@@ -30,7 +30,7 @@ type TcpServerEntity struct {
 	tcpport            string                //服务开启地址
 }
 
-func (t *TcpServerEntity) Init(port, serial string, needfb bool, con_queue_pool_size, writeConrutionSize, broadCastSize int, timeoutsec int64, pool *MemPool, bv BeatPackageImpl, cv CryptImpl, ov ConChangeObserverImpl, av AckImpl, pv PackageParseImpl) {
+func (t *TcpServerEntity) Init(port, serial string, can_dup, needfb bool, con_queue_pool_size, writeConrutionSize, broadCastSize int, timeoutsec int64, pool *MemPool, bv BeatPackageImpl, cv CryptImpl, ov ConChangeObserverImpl, av AckImpl, pv PackageParseImpl) {
 	t.tcpport = port
 	t.Serial = serial
 	t.WriteConrutionSize = writeConrutionSize
@@ -46,6 +46,7 @@ func (t *TcpServerEntity) Init(port, serial string, needfb bool, con_queue_pool_
 	t.MemQueue = FifoQueue{}
 	t.ToBroadCast = make([]ServerImpl, 0, broadCastSize)
 	t.LastBeatSend = make(map[string]*int64, 1000)
+	t.TcpClientCons.SetAllowDup(can_dup)
 }
 
 func (t *TcpServerEntity) AddToDistributeEntity(v ServerImpl) {
@@ -53,7 +54,7 @@ func (t *TcpServerEntity) AddToDistributeEntity(v ServerImpl) {
 }
 
 func (t *TcpServerEntity) SerialIsActivity(serial string) bool {
-	_, ok := t.TcpClientCons.Load(serial)
+	ok := t.TcpClientCons.IsKeyExist(serial)
 	return ok
 }
 
@@ -81,6 +82,7 @@ func (t *TcpServerEntity) BroadCastData(data DataWrapper) {
 func (t *TcpServerEntity) addMontitor(serial string, con net.Conn) {
 	v, ok := t.MonitorCons.LoadOrStore(serial, con)
 	if ok { //两个连接都关闭
+		t.MonitorCons.Delete(serial)
 		con.Close()
 		con, ok = v.(net.Conn)
 		if ok {
@@ -97,7 +99,15 @@ func (t *TcpServerEntity) addTcpConn(serial string, con net.Conn) {
 	t.LastBeatSend[serial] = value
 	t.rw_mutex.Unlock()
 
-	t.TcpClientCons.Store(serial, con)
+	v, ok := t.TcpClientCons.LoadOrStore(serial, con.RemoteAddr().String(), con)
+	if ok {
+		t.TcpClientCons.Delete(serial, con.RemoteAddr().String())
+		con.Close()
+		con, ok = v.(net.Conn)
+		if ok {
+			con.Close()
+		}
+	}
 }
 
 //移除con
@@ -112,18 +122,18 @@ func (t *TcpServerEntity) removeMontitor(serial string) {
 	t.MonitorCons.Delete(serial)
 }
 
-func (t *TcpServerEntity) removeTcpConn(serial string) {
+func (t *TcpServerEntity) removeTcpConn(serial string, con net.Conn) {
 	t.rw_mutex.Lock()
 	if _, ok := t.LastBeatSend[serial]; ok {
 		delete(t.LastBeatSend, serial)
 	}
 	t.rw_mutex.Unlock()
-	t.TcpClientCons.Delete(serial)
+	t.TcpClientCons.Delete(serial, con.RemoteAddr().String())
 }
 
 //强制关闭连接
-func (t *TcpServerEntity) forceCloseConn(serial string) bool {
-	v, ok := t.TcpClientCons.Load(serial)
+func (t *TcpServerEntity) forceCloseConn(serial string, con net.Conn) bool {
+	v, ok := t.TcpClientCons.Load(serial, con.RemoteAddr().String())
 	ret := false
 	if ok {
 		con, ok := v.(net.Conn)
@@ -167,13 +177,13 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 			for k, v := range t.LastBeatSend {
 				if now-*v >= freq {
 					*v = now
-					tc, ok := t.TcpClientCons.Load(k)
-					if ok {
-						con, ok := tc.(net.Conn)
+					t.TcpClientCons.Range(k, func(mkey interface{}, mvalue interface{}) bool {
+						con, ok := mvalue.(net.Conn)
 						if ok {
 							con.Write(beat)
 						}
-					}
+						return true
+					})
 				}
 			}
 			t.rw_mutex.RUnlock()
@@ -209,9 +219,9 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 		src_len += rcv_len
 
 		if err != nil {
-			con.Close()
 			log.Println("server[", t.Serial, "] close connect:", serial)
-			t.removeTcpConn(serial)
+			t.removeTcpConn(serial, con)
+			con.Close()
 			if t.ObserverInf != nil { //观察存在时
 				t.ObserverInf.HDisConnect(serial)
 				t.ObserverInf.SDisConnect(serial, hd, t, t.ToBroadCast...)
@@ -244,6 +254,7 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 					UdpAddr:         nil,
 					DataLength:      s_size,
 					TargetConSerial: serial,
+					SelfId:          con.RemoteAddr().String(),
 					CreateUnixSec:   time.Now().Unix(),
 				}
 				t.AddDataForWrite(s_write)
@@ -257,6 +268,7 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 					UdpAddr:         nil,
 					DataLength:      c_size,
 					TargetConSerial: serial0,
+					SelfId:          "",
 					CreateUnixSec:   time.Now().Unix(),
 				}
 				t.BroadCastData(c_write)
@@ -279,10 +291,11 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 	serial := data.TargetConSerial
 	src, _ := data.DataStore.Bytes()
 
-	log.Println(t.Serial, "write:", string(src[0:data.DataLength]))
+	log.Println(t.Serial, "-->", serial, ":", string(src[0:data.DataLength]))
 
-	if v, ok := t.TcpClientCons.Load(serial); ok {
-		if con, ok := v.(net.Conn); ok {
+	t.TcpClientCons.Range(serial, func(mkey interface{}, mvalue interface{}) bool {
+		con, ok := mvalue.(net.Conn)
+		if ok {
 			if t.CryptInf != nil {
 
 				tmp := data.DataStore.PoolPtr.GetEntity(1, 4*data.DataLength)
@@ -303,7 +316,8 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 				}
 			}
 		}
-	}
+		return true
+	})
 
 	if ret {
 		if montor_v, ok := t.MonitorCons.Load(serial); ok {
@@ -331,7 +345,7 @@ func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con net.Conn) (bool, 
 	serial := data.TargetConSerial
 	src, _ := data.DataStore.Bytes()
 
-	log.Println(t.Serial, "s write:", string(src[0:data.DataLength]))
+	log.Println(t.Serial, "-->", serial, ":", string(src[0:data.DataLength]))
 
 	if t.CryptInf != nil {
 

@@ -10,6 +10,9 @@
 <WsPort>9009</WsPort>
 </Ports>
 
+<Encrypt>
+<GateWay>true</GateWay>
+</Encrypt>
 
 <Redis>
   <RedisURL>redis://127.0.0.1:6379</RedisURL>

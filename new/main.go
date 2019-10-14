@@ -38,9 +38,12 @@ type BeatPackageEntity struct {
 	Interval int64 //为0时则只被动响应，不发送心跳
 }
 
+//
 func (b *BeatPackageEntity) BeatBytes() []byte {
 	return b.Beat
 }
+
+//
 func (b *BeatPackageEntity) BeatAckBytes() []byte {
 	return b.AckBeat
 }
@@ -74,7 +77,7 @@ func contains(src, substr []byte, src_len, substr_len int) (bool, int) {
 	return ret, 0
 }
 
-func removeBeat(src []byte, index, src_size, sub_size int) {
+func removeBytes(src []byte, index, src_size, sub_size int) {
 	for i := index; i < src_size; i++ {
 		if i < src_size-sub_size {
 			src[i] = src[i+sub_size]
@@ -82,7 +85,7 @@ func removeBeat(src []byte, index, src_size, sub_size int) {
 	}
 }
 
-func trim(src []byte, src_len int, ch byte) int {
+func trimLeft(src []byte, src_len int, ch byte) int {
 	m := 0
 	for i := 0; i < src_len; i++ {
 		if src[i] == ch {
@@ -91,15 +94,7 @@ func trim(src []byte, src_len int, ch byte) int {
 			break
 		}
 	}
-	removeBeat(src, 0, src_len, m)
-
-	for i := src_len - 1; i >= 0; i-- {
-		if src[i] == ch {
-			m += 1
-		} else {
-			break
-		}
-	}
+	removeBytes(src, 0, src_len, m)
 	return src_len - m
 
 }
@@ -195,6 +190,7 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 		UdpAddr:         nil,
 		DataLength:      size,
 		TargetConSerial: serial,
+		SelfId:          "",
 		CreateUnixSec:   time.Now().Unix(),
 	}
 
@@ -310,20 +306,35 @@ func (a *AckEntity) AckConnect(con net.Conn, serial string, buf *MemEntity, v Cr
 type TcpPackageParseEntity struct {
 }
 
-//两个 }}结尾则认为合法
-func (p *TcpPackageParseEntity) checkValidTail(bys []byte, l int) int {
+//checkjson
+func (p *TcpPackageParseEntity) checkMayJson(bys []byte, l int) (from int, to int) {
+	from = -1
+	to = -1
+	if l <= 0 {
+		return from, to
+	}
 	num := 0
 	for i := 0; i < l; i++ {
-		if bys[i] == '}' {
-			num += 1
-			if num == 2 {
-				return i
+		if bys[i] == '{' {
+			if from == -1 {
+				from = i
 			}
-		} else if !(bys[i] == ' ' || bys[i] == '\t' || bys[i] == '\n' || bys[i] == '\r') {
-			num = 0
+			num += 1
+		}
+		if bys[i] == '}' {
+			to = i
+			num -= 1
+		}
+
+		if from >= 0 && to > from && num == 0 {
+			break
 		}
 	}
-	return -1
+	if from > to {
+		from = -1
+	}
+	return from, to
+
 }
 
 func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (int, int, string, bool) {
@@ -361,34 +372,30 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 	}
 
 	if v != nil {
-
 		ok, left_len, dlen = v.DeCrypt(cwp, cdt, dlen, piece)
-
+		dlen = trimLeft(cdt, dlen, 32)
 		if !ok {
 			log.Println("解密失败", server_serial)
 			return 0, 0, serial, beat
 		}
 	}
-
 	ok, bi := contains(cdt, ALIVE, dlen, len(ALIVE))
 	for ok {
 		beat = true
-		removeBeat(cdt, bi, dlen, len(ALIVE))
+		removeBytes(cdt, bi, dlen, len(ALIVE))
 		dlen -= len(ALIVE)
 		ok, bi = contains(cdt, ALIVE, dlen, len(ALIVE))
 	}
 
-	index := p.checkValidTail(cdt, dlen)
+	from, to := p.checkMayJson(cdt, dlen)
 
-	if index > -1 {
-		ca_size = index + 1
+	if from > -1 {
+		ca_size = to - from + 1
 		tbyte, _ := tocast.Bytes()
-
-		for i := 0; i < ca_size; i++ {
-			tbyte[i] = cdt[i]
+		for i := from; i <= to; i++ {
+			tbyte[i-from] = cdt[i]
 		}
-
-		for i := 0; i < dlen-ca_size; i++ {
+		for i := from; i <= to; i++ {
 			cdt[i] = cdt[i+ca_size]
 		}
 		dlen -= ca_size
@@ -450,7 +457,28 @@ func (w *WEIXINPackageParseEntity) Parser(server_serial, udp_serial string, src,
 
 }
 
+//websocket信息解析
+type WebSocketParse struct {
+}
+
+func (w *WebSocketParse) Parser(server_serial, cur_con_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (s_size int, c_size int, serial string, beat bool) {
+	bytes, _ := src.Bytes()
+	sbytes, _ := toself.Bytes()
+	cbytes, _ := tocast.Bytes()
+	for i := 0; i < *src_len; i++ {
+		cbytes[i] = bytes[i]
+		sbytes[i] = bytes[i]
+	}
+	sbytes[*src_len] = ':'
+	sbytes[*src_len+1] = 'O'
+	sbytes[*src_len+2] = 'K'
+	return *src_len + 3, *src_len, cur_con_serial, false
+}
+
 func main() {
+	/*
+		Tcp, WebSocket目前每个服务中所有的serial均不能雷同，否则会被挤下线
+	*/
 
 	pool := MemPool{}
 
@@ -464,26 +492,50 @@ func main() {
 		Interval: 50,
 	}
 
-	GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, true, 15000, 0, 3, 600, &pool, v,
-		&CryptEntity{},
-		&ConChangeObserverEntity{},
-		&AckEntity{},
-		&TcpPackageParseEntity{})
+	if ConfigInstance.NeedEncrypt.GateWay {
+		GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, false, true, 15000, 0, 3, 600,
+			&pool,
+			v,
+			&CryptEntity{},
+			&ConChangeObserverEntity{},
+			&AckEntity{},
+			&TcpPackageParseEntity{})
+	} else {
+		GateWay.Init(ConfigInstance.Ports.GateWay, SERVER_GATEWAY, false, true, 15000, 0, 3, 600,
+			&pool,
+			v,
+			nil,
+			&ConChangeObserverEntity{},
+			&AckEntity{},
+			&TcpPackageParseEntity{})
+	}
 
 	WEB := TcpServerEntity{}
-	WEB.Init(ConfigInstance.Ports.WebClient, SERVER_WEB, false, 15000, 5, 1, 600, &pool, nil, nil,
+	WEB.Init(ConfigInstance.Ports.WebClient, SERVER_WEB, true, false, 15000, 5, 1, 600,
+		&pool,
+		nil,
+		nil,
 		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	APP := TcpServerEntity{}
-	APP.Init(ConfigInstance.Ports.Control, SERVER_APP, false, 15000, 5, 1, 600, &pool, nil, nil,
+	APP.Init(ConfigInstance.Ports.Control, SERVER_APP, true, false, 15000, 5, 1, 600,
+		&pool,
+		nil,
+		nil,
 		&ConChangeObserverEntity{},
 		&AckEntity{},
 		&TcpPackageParseEntity{})
 
 	WebSocket := WebSocketServerEntity{}
-	WebSocket.Init(ConfigInstance.Ports.WsPort, WEBSOCKET, 1, 600, &pool, &WebSocketParse{})
+	WebSocket.Init(ConfigInstance.Ports.WsPort,
+		WEBSOCKET,
+		true,
+		1,
+		600,
+		&pool,
+		&WebSocketParse{})
 
 	WEIXIN.AddToDistributeEntity(&GateWay)
 	WEB.AddToDistributeEntity(&GateWay)
