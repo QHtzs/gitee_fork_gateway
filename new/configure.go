@@ -58,6 +58,7 @@ type Configure struct {
 	Other        TtgOtherCfg     `xml:"Other"`
 	NeedEncrypt  TtgEncrypt      `xml:"Encrypt"`
 	LogFilePath  string          `xml:"LogFilePath"`
+	PProfDebuger bool            `xml:"PProfDebuger"`
 }
 
 func load_config(filename string) Configure {

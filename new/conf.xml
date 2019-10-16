@@ -45,5 +45,7 @@
 
 <LogFilePath>log.log</LogFilePath>
 
+<!--是否开启net/PProf。 开启后本地访问http://127.0.0.1:7777/debug/pprof/ 可以查看程序运行信息-->
+<PProfDebuger>true</PProfDebuger>
 
 </servers>

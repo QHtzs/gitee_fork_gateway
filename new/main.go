@@ -552,8 +552,13 @@ func main() {
 	go APP.StartListen()
 	go WEIXIN.StartListen()
 	go GateWay.StartListen()
-	go WebSocket.StartListen()
-	http.ListenAndServe("localhost:7777", nil)
+
+	if ConfigInstance.PProfDebuger {
+		go WebSocket.StartListen()
+		http.ListenAndServe("localhost:7777", nil) //block
+	} else {
+		WebSocket.StartListen() // block
+	}
 }
 
 /*

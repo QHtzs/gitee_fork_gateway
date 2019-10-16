@@ -39,14 +39,6 @@ func (q *QueueHandle) Size() int {
 func (q *QueueHandle) AddData(v interface{}) bool {
 	q.LazyInit()
 
-	q.mutex.Lock()
-	mfree := q.free
-	q.mutex.Unlock()
-
-	if mfree {
-		return false
-	}
-
 	select {
 	case q.NotiFy <- 1:
 		break
@@ -56,19 +48,16 @@ func (q *QueueHandle) AddData(v interface{}) bool {
 
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
-	q.DeQueue.PushBack(v)
-	return true
+	if q.free {
+		return false
+	} else {
+		q.DeQueue.PushBack(v)
+		return true
+	}
 }
 
 func (q *QueueHandle) PopData() interface{} {
 	q.LazyInit()
-
-	q.mutex.Lock()
-	mfree := q.free
-	q.mutex.Unlock()
-	if mfree {
-		return nil
-	}
 
 	if q.Size() <= 0 {
 		<-q.NotiFy
@@ -85,16 +74,15 @@ func (q *QueueHandle) PopData() interface{} {
 
 func (q *QueueHandle) CanGc() bool {
 	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	b1 := time.Now().Unix()-q.LastActiveTime > 3000
-	q.mutex.Unlock()
-	return b1 && q.Size() <= 0
+	return q.status && b1 && q.Size() <= 0
 }
 
 func (q *QueueHandle) SetFree() {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
-	q.DeQueue.Init()
-	close(q.NotiFy)
+	//close(q.NotiFy) 不关闭也能被回收
 	q.free = true
 }
 
@@ -110,12 +98,11 @@ func (f *FifoQueue) Put(serial string, v interface{}) {
 	if ok {
 		mp, ok := actual.(*QueueHandle)
 		if ok {
-			if mp.free {
+			if mp.AddData(v) {
+				return
+			} else {
 				time.Sleep(50 * time.Millisecond)
 				f.Put(serial, v) //递归
-			} else {
-				mp.AddData(v)
-				return //添加完毕，退出
 			}
 		}
 	}
@@ -175,9 +162,7 @@ func (f *FifoQueue) SingelPut(v interface{}) {
 	if f.single == nil {
 		f.single = &QueueHandle{}
 	}
-	for !f.single.AddData(v) {
-		time.Sleep(100 * time.Millisecond)
-	}
+	f.single.AddData(v)
 }
 
 func (f *FifoQueue) SingleGet() interface{} {

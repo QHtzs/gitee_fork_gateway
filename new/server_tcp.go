@@ -299,6 +299,9 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 	t.TcpClientCons.Range(serial, func(mkey interface{}, mvalue interface{}) bool {
 		con, ok := mvalue.(*WrapConn)
 		if ok {
+			if con.IsClosed() {
+				return true
+			}
 			if t.CryptInf != nil {
 
 				tmp := data.DataStore.PoolPtr.GetEntity(1, 4*data.DataLength)
