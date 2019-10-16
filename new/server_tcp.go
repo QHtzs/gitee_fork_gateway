@@ -7,6 +7,20 @@ import (
 	"time"
 )
 
+type WrapConn struct {
+	closed bool
+	net.Conn
+}
+
+func (w *WrapConn) Close() {
+	w.closed = true
+	w.Conn.Close()
+}
+
+func (w *WrapConn) IsClosed() bool {
+	return w.closed
+}
+
 type TcpServerEntity struct {
 	Listener           net.Listener          //服务监听器
 	BeatInf            BeatPackageImpl       //心跳处理接口
@@ -79,19 +93,19 @@ func (t *TcpServerEntity) BroadCastData(data DataWrapper) {
 }
 
 //添加con
-func (t *TcpServerEntity) addMontitor(serial string, con net.Conn) {
+func (t *TcpServerEntity) addMontitor(serial string, con *WrapConn) {
 	v, ok := t.MonitorCons.LoadOrStore(serial, con)
 	if ok { //两个连接都关闭
 		t.MonitorCons.Delete(serial)
 		con.Close()
-		con, ok = v.(net.Conn)
+		con, ok = v.(*WrapConn)
 		if ok {
 			con.Close()
 		}
 	}
 }
 
-func (t *TcpServerEntity) addTcpConn(serial string, con net.Conn) {
+func (t *TcpServerEntity) addTcpConn(serial string, con *WrapConn) {
 	value := new(int64)
 	*value = time.Now().Unix()
 
@@ -103,7 +117,7 @@ func (t *TcpServerEntity) addTcpConn(serial string, con net.Conn) {
 	if ok {
 		t.TcpClientCons.Delete(serial, con.RemoteAddr().String())
 		con.Close()
-		con, ok = v.(net.Conn)
+		con, ok = v.(*WrapConn)
 		if ok {
 			con.Close()
 		}
@@ -114,7 +128,7 @@ func (t *TcpServerEntity) addTcpConn(serial string, con net.Conn) {
 func (t *TcpServerEntity) removeMontitor(serial string) {
 	v, ok := t.MonitorCons.Load(serial)
 	if ok {
-		con, ok := v.(net.Conn)
+		con, ok := v.(*WrapConn)
 		if ok {
 			con.Close()
 		}
@@ -122,27 +136,13 @@ func (t *TcpServerEntity) removeMontitor(serial string) {
 	t.MonitorCons.Delete(serial)
 }
 
-func (t *TcpServerEntity) removeTcpConn(serial string, con net.Conn) {
+func (t *TcpServerEntity) removeTcpConn(serial string, con *WrapConn) {
 	t.rw_mutex.Lock()
 	if _, ok := t.LastBeatSend[serial]; ok {
 		delete(t.LastBeatSend, serial)
 	}
 	t.rw_mutex.Unlock()
 	t.TcpClientCons.Delete(serial, con.RemoteAddr().String())
-}
-
-//强制关闭连接
-func (t *TcpServerEntity) forceCloseConn(serial string, con net.Conn) bool {
-	v, ok := t.TcpClientCons.Load(serial, con.RemoteAddr().String())
-	ret := false
-	if ok {
-		con, ok := v.(net.Conn)
-		if ok {
-			ret = true
-			con.Close()
-		}
-	}
-	return ret
 }
 
 //心跳发送
@@ -178,7 +178,7 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 				if now-*v >= freq {
 					*v = now
 					t.TcpClientCons.Range(k, func(mkey interface{}, mvalue interface{}) bool {
-						con, ok := mvalue.(net.Conn)
+						con, ok := mvalue.(*WrapConn)
 						if ok {
 							con.Write(beat)
 						}
@@ -194,11 +194,14 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 }
 
 //心跳响应
-func (t *TcpServerEntity) sendBeatAck(con net.Conn, ack []byte) {
-	con.Write(ack)
+func (t *TcpServerEntity) sendBeatAck(con *WrapConn, ack []byte) {
+	_, err := con.Write(ack)
+	if err != nil {
+		con.Close()
+	}
 }
 
-func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
+func (t *TcpServerEntity) createReadroutine(con *WrapConn, serial string) {
 	hd := t.Pool.GetEntity(1, 1024)
 	defer hd.ReleaseOnece()
 	m_byte, _ := hd.Bytes()
@@ -240,7 +243,7 @@ func (t *TcpServerEntity) createReadroutine(con net.Conn, serial string) {
 
 			s_size, c_size, serial0, need_beat := t.ParserInf.Parser(t.Serial, serial, hd, toself, tocast, &src_len, t.CryptInf)
 
-			tmp_bool = s_size > 0 || c_size > 0 || need_beat
+			tmp_bool = c_size > 0 || need_beat
 
 			log.Println(t.Serial, "parser:", s_size, c_size, serial0, need_beat, src_len)
 
@@ -294,7 +297,7 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 	log.Println(t.Serial, "-->", serial, ":", string(src[0:data.DataLength]))
 
 	t.TcpClientCons.Range(serial, func(mkey interface{}, mvalue interface{}) bool {
-		con, ok := mvalue.(net.Conn)
+		con, ok := mvalue.(*WrapConn)
 		if ok {
 			if t.CryptInf != nil {
 
@@ -307,12 +310,16 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 				if status {
 					if _, err := con.Write(dst[0:dsize]); err == nil {
 						ret = true
+					} else {
+						con.Close()
 					}
 				}
 
 			} else {
 				if _, err := con.Write(src[0:data.DataLength]); err == nil {
 					ret = true
+				} else {
+					con.Close()
 				}
 			}
 		}
@@ -321,7 +328,7 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 
 	if ret {
 		if montor_v, ok := t.MonitorCons.Load(serial); ok {
-			if m_con, ok := montor_v.(net.Conn); ok {
+			if m_con, ok := montor_v.(*WrapConn); ok {
 				if _, err := m_con.Write(src[0:data.DataLength]); err != nil {
 					t.removeMontitor(serial)
 				}
@@ -332,7 +339,7 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 	return ret
 }
 
-func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con net.Conn) (bool, error) {
+func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con *WrapConn) (bool, error) {
 
 	ret := false
 	var err error = nil
@@ -358,18 +365,22 @@ func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con net.Conn) (bool, 
 		if status {
 			if _, err = con.Write(dst[0:dsize]); err == nil {
 				ret = true
+			} else {
+				con.Close()
 			}
 		}
 
 	} else {
 		if _, err = con.Write(src[0:data.DataLength]); err == nil {
 			ret = true
+		} else {
+			con.Close()
 		}
 	}
 
 	if ret {
 		if montor_v, ok := t.MonitorCons.Load(serial); ok {
-			if m_con, ok := montor_v.(net.Conn); ok {
+			if m_con, ok := montor_v.(*WrapConn); ok {
 				if _, err0 := m_con.Write(src[0:data.DataLength]); err0 != nil {
 					t.removeMontitor(serial)
 				}
@@ -401,13 +412,19 @@ func (t *TcpServerEntity) writeDataSharePool() {
 }
 
 //每个连接占用一个conroutine进行写入
-func (t *TcpServerEntity) writeDataEachConRoutine(serial string, con net.Conn) {
+func (t *TcpServerEntity) writeDataEachConRoutine(serial string, con *WrapConn) {
 	for {
+		if con.IsClosed() {
+			break
+		}
 		data := t.MemQueue.Get(serial)
 		if data == nil {
 			continue
 		}
 		if dwp, ok := data.(DataWrapper); ok {
+			if dwp.DataLength < 1 {
+				continue
+			}
 			bl, err := t.writeDatatoCon(dwp, con)
 			if bl || !t.NeedFeedBack {
 				dwp.DataStore.ReleaseOnece()
@@ -433,19 +450,22 @@ func (t *TcpServerEntity) newComeConHandle(handle_id int) {
 		if ok, serial, tp := t.AckInf.AckSerial(con, buf, t.CryptInf); ok {
 			if err := t.AckInf.AckConnect(con, serial, buf, t.CryptInf); err == nil {
 				log.Println("server[", t.Serial, "] get new connect:", serial)
+				WConn := &WrapConn{
+					false,
+					con}
 				if tp == 1 {
-					t.addMontitor(serial, con)
+					t.addMontitor(serial, WConn)
 				} else {
-					t.addTcpConn(serial, con)
+					t.addTcpConn(serial, WConn)
 
 					if t.ObserverInf != nil {
 						t.ObserverInf.HNewConnect(serial)
 						t.ObserverInf.SNewConnect(serial, buf, t, t.ToBroadCast...)
 					}
 
-					go t.createReadroutine(con, serial)
+					go t.createReadroutine(WConn, serial)
 					if t.WriteConrutionSize < 1 {
-						go t.writeDataEachConRoutine(serial, con)
+						go t.writeDataEachConRoutine(serial, WConn)
 					}
 
 				}

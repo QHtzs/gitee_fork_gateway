@@ -2,6 +2,7 @@ package main
 
 /*
 不追求性能极致，故采用一般锁。而不模拟sync.Map结构
+
 */
 
 import (
@@ -23,7 +24,7 @@ func (n *NetConMap) Delete(serial, subkey string) {
 		v, ok := n.Deque.Load(serial)
 		if ok {
 			mp, ok := v.(*sync.Map)
-			if ok {
+			if ok { //
 				mp.Delete(subkey)
 			}
 		}

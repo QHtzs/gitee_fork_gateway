@@ -111,6 +111,7 @@ func (w *WebSocketServerEntity) createWriteConroutine() {
 func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 	entity := w.Pool.GetEntity(1, 1024)
 	defer entity.FullRelease()
+	defer ws.Close()
 
 	bytes, _ := entity.Bytes()
 	length, err := w.wread(ws, entity)

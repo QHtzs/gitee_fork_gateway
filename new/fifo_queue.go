@@ -3,114 +3,186 @@ package main
 import (
 	"container/list"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
+//channel形成的goroutine不会释放，直到程序结束
 type QueueHandle struct {
-	DeQueue *list.List
-	NotiFy  chan int
-	MaxSize int
-	mutex   sync.Mutex
-	status  bool
+	DeQueue        *list.List
+	NotiFy         chan int
+	LastActiveTime int64
+	mutex          sync.Mutex
+	status         bool
+	free           bool
 }
 
-func (q *QueueHandle) Init(qsize int) {
+func (q *QueueHandle) LazyInit() {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
+	q.LastActiveTime = time.Now().Unix()
 	if q.status {
 		return
 	}
-	if qsize > 0 {
-		q.NotiFy = make(chan int, qsize)
-	} else {
-		q.NotiFy = make(chan int, 1)
-	}
+	q.NotiFy = make(chan int, 1)
 	q.DeQueue = list.New()
-	q.MaxSize = qsize
 	q.status = true
+	q.free = false
 }
 
-func (q *QueueHandle) QSize() int {
+func (q *QueueHandle) Size() int {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	return q.DeQueue.Len()
 }
 
-func (q *QueueHandle) AddData(v interface{}) {
-	if q.MaxSize > 0 {
-		q.NotiFy <- 1
-	} else {
-		select {
-		case q.NotiFy <- 1:
-			break
-		default:
-			break
-		}
+func (q *QueueHandle) AddData(v interface{}) bool {
+	q.LazyInit()
+
+	q.mutex.Lock()
+	mfree := q.free
+	q.mutex.Unlock()
+
+	if mfree {
+		return false
 	}
+
+	select {
+	case q.NotiFy <- 1:
+		break
+	default:
+		break
+	}
+
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	q.DeQueue.PushBack(v)
+	return true
 }
 
 func (q *QueueHandle) PopData() interface{} {
-	if q.MaxSize > 0 || q.DeQueue.Len() <= 0 {
+	q.LazyInit()
+
+	q.mutex.Lock()
+	mfree := q.free
+	q.mutex.Unlock()
+	if mfree {
+		return nil
+	}
+
+	if q.Size() <= 0 {
 		<-q.NotiFy
 	}
 
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	var ret interface{} = nil
 	if q.DeQueue.Len() > 0 {
-		ret = q.DeQueue.Remove(q.DeQueue.Front())
+		return q.DeQueue.Remove(q.DeQueue.Front())
 	}
-	return ret
+	return nil
+}
+
+func (q *QueueHandle) CanGc() bool {
+	q.mutex.Lock()
+	b1 := time.Now().Unix()-q.LastActiveTime > 3000
+	q.mutex.Unlock()
+	return b1 && q.Size() <= 0
+}
+
+func (q *QueueHandle) SetFree() {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	q.DeQueue.Init()
+	close(q.NotiFy)
+	q.free = true
 }
 
 type FifoQueue struct {
-	mutex  sync.Mutex
-	deque  map[string]*QueueHandle //use pointer to avoid copy, and ensure share the same mutex for QueueHandle element
-	single QueueHandle
-	inited bool
+	deque    sync.Map
+	single   *QueueHandle
+	calltime uint64
 }
 
 func (f *FifoQueue) Put(serial string, v interface{}) {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-	if !f.inited {
-		f.inited = true
-		f.deque = make(map[string]*QueueHandle, 1)
-	}
-	v_, ok := f.deque[serial]
+
+	actual, ok := f.deque.LoadOrStore(serial, &QueueHandle{})
 	if ok {
-		v_.Init(0)
-		v_.AddData(v)
-	} else {
-		v_ = &QueueHandle{status: false}
-		v_.Init(0)
-		v_.AddData(v)
-		f.deque[serial] = v_
+		mp, ok := actual.(*QueueHandle)
+		if ok {
+			if mp.free {
+				time.Sleep(50 * time.Millisecond)
+				f.Put(serial, v) //递归
+			} else {
+				mp.AddData(v)
+				return //添加完毕，退出
+			}
+		}
 	}
+
+	f.deque.Range(func(key interface{}, value interface{}) bool {
+		sk, _ := key.(string)
+		if sk == serial {
+			act_v, ok := value.(*QueueHandle)
+			if ok && act_v != nil {
+				act_v.AddData(v)
+			}
+			return false
+		} else {
+			return true
+		}
+	})
+
 }
 
 func (f *FifoQueue) Get(serial string) interface{} {
-	f.mutex.Lock()
-	v_, ok := f.deque[serial]
-	f.mutex.Unlock()
-	var v interface{} = nil
-	if ok {
-		v = v_.PopData()
-	} else {
-		time.Sleep(2 * time.Second)
+
+	atomic.AddUint64(&f.calltime, 1)
+
+	if atomic.LoadUint64(&f.calltime)%1000 == 0 {
+		capture := make(map[string]bool, 1)
+		f.deque.Range(func(key interface{}, value interface{}) bool {
+			name, _ := key.(string)
+			act_v, ok := value.(*QueueHandle)
+			if ok {
+				if act_v.CanGc() {
+					capture[name] = true
+					act_v.SetFree()
+				}
+			}
+			return true
+		})
+
+		for nk, _ := range capture {
+			if nk != "" {
+				f.deque.Delete(nk)
+			}
+		}
 	}
-	return v
+
+	actual, ok := f.deque.Load(serial)
+	if ok {
+		q, ok := actual.(*QueueHandle)
+		if ok {
+			return q.PopData()
+		}
+	}
+	time.Sleep(200 * time.Millisecond)
+	return nil
 }
 
 func (f *FifoQueue) SingelPut(v interface{}) {
-	f.single.Init(0)
-	f.single.AddData(v)
-
+	if f.single == nil {
+		f.single = &QueueHandle{}
+	}
+	for !f.single.AddData(v) {
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func (f *FifoQueue) SingleGet() interface{} {
-	f.single.Init(0)
+	if f.single == nil {
+		f.single = &QueueHandle{}
+	}
 	return f.single.PopData()
 }

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"time"
 )
 
@@ -209,13 +211,13 @@ func (c *ConChangeObserverEntity) SDisConnect(serial string, entity *MemEntity, 
 func (c *ConChangeObserverEntity) HNewConnect(serial string) {
 	url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_CONNECT)
 	HttpGet(url)
-	HSet("STATUS", serial, "1")
+	//HSet("STATUS", serial, "1") //不采用redis记录状态
 }
 
 func (c *ConChangeObserverEntity) HDisConnect(serial string) {
 	url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_DISCONNECT)
 	HttpGet(url)
-	HSet("STATUS", serial, "0")
+	//HSet("STATUS", serial, "0") //不采用redis记录状态
 }
 
 //认证实例化
@@ -550,8 +552,8 @@ func main() {
 	go APP.StartListen()
 	go WEIXIN.StartListen()
 	go GateWay.StartListen()
-	WebSocket.StartListen()
-
+	go WebSocket.StartListen()
+	http.ListenAndServe("localhost:7777", nil)
 }
 
 /*

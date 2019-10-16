@@ -1,7 +1,7 @@
 package main
 
 /*
-简单内存池，及其管理器. 内存池内存不会回收
+简单内存池，及其管理器.
 */
 
 import (
@@ -29,6 +29,36 @@ func (m *MemBrick) Alloc(piece, each_size int) {
 	m.EachSize = each_size
 }
 
+//计算占据多少内存
+func (m *MemBrick) MemoryOccurpy() (Byte int64) {
+	Byte = 12 + int64(len(m.AllocPieceIndex)*(1+m.EachSize))
+	Byte = (Byte + 3) / 4 //对齐
+	Byte *= 4
+	return Byte
+}
+
+//是否空闲
+func (m *MemBrick) IsAllFree() bool {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	for _, v := range m.AllocPieceIndex {
+		if !v {
+			return false
+		}
+	}
+	return true
+}
+
+//set nil
+func (m *MemBrick) GFree() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.NextBrick = nil
+	m.AllocBytes = nil
+	m.AllocPieceIndex = nil
+	m.EachSize = 0
+}
+
 //内存块逻辑相连
 func (m *MemBrick) Connect(mb *MemBrick) {
 	ptr := m
@@ -43,6 +73,9 @@ func (m *MemBrick) CheckAndAcquireFree() int {
 	ret := -1
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+	if m.AllocPieceIndex == nil {
+		return ret
+	}
 	for index, status := range m.AllocPieceIndex {
 		if status {
 			ret = index
@@ -104,6 +137,46 @@ func (m *MemEntity) FullRelease() {
 
 type MemPool struct {
 	MemBrickList *MemBrick
+	pmu          sync.RWMutex
+	TotalCall    uint64
+}
+
+func (m *MemPool) removeOneNode() {
+	if m.MemBrickList == nil {
+		return
+	}
+
+	m.pmu.RLock()
+	n0 := m.MemBrickList
+	n1 := n0.NextBrick
+	m.pmu.RUnlock()
+
+	if n0.IsAllFree() && n1 != nil {
+		m.pmu.Lock()
+		m.MemBrickList = n1
+		m.pmu.Unlock()
+
+		n0.GFree()
+		n0 = nil
+
+	} else {
+		for n1 != nil {
+			if n1.IsAllFree() {
+				m.pmu.Lock()
+				n0.NextBrick = n1.NextBrick
+				m.pmu.Unlock()
+
+				n1.GFree()
+				n1 = nil
+
+			} else {
+				m.pmu.RLock()
+				n0 = n1
+				n1 = n0.NextBrick
+				m.pmu.RUnlock()
+			}
+		}
+	}
 }
 
 func (m *MemPool) findBestFix(size int) int {
@@ -117,6 +190,8 @@ func (m *MemPool) findBestFix(size int) int {
 func (m *MemPool) addNew(size int) {
 	mc := new(MemBrick)
 	mc.Alloc(1024, size)
+	m.pmu.Lock()
+	defer m.pmu.Unlock()
 	if m.MemBrickList == nil {
 		m.MemBrickList = mc
 	} else {
@@ -150,12 +225,13 @@ func (m *MemPool) getEntity(ack_time, size int) *MemEntity {
 		return nil
 	}
 
-	ret := new(MemEntity)
-	ret.Index = index
-	ret.AckTimes = new(int32)
-	*ret.AckTimes = int32(ack_time)
-	ret.Brick = ptr
-	ret.PoolPtr = m
+	ack := int32(ack_time)
+	ret := &MemEntity{
+		Index:    index,
+		AckTimes: &ack,
+		Brick:    ptr,
+		PoolPtr:  m}
+
 	return ret
 }
 
@@ -164,5 +240,25 @@ func (m *MemPool) GetEntity(ack_time, size int) *MemEntity {
 	if ret == nil {
 		ret = m.getEntity(ack_time, size)
 	}
+	atomic.AddUint64(&m.TotalCall, 1)
+	if atomic.LoadUint64(&m.TotalCall)%1000 == 0 {
+		//添加简单的gc措施，实际操作可不回收
+		//该过程是便于高峰之后缓慢降低内存占用，略微提高抗攻击性能
+		m.removeOneNode()
+	}
 	return ret
+}
+
+func (m *MemPool) TotalSize() (Byte int64) {
+	Byte = 0
+	if m.MemBrickList == nil {
+		Byte = 4
+	} else {
+		ptr := m.MemBrickList
+		for ptr != nil {
+			Byte += ptr.MemoryOccurpy()
+			ptr = ptr.NextBrick
+		}
+	}
+	return Byte
 }
