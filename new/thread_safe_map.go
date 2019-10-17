@@ -19,6 +19,7 @@ type NetConMap struct {
 
 func (n *NetConMap) SetAllowDup(bl bool) {
 	n.AllowDup = bl
+	n.tms = 0
 }
 
 func (n *NetConMap) Delete(serial, subkey string) {

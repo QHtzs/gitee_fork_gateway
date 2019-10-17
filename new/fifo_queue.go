@@ -18,9 +18,9 @@ type QueueHandle struct {
 }
 
 func (q *QueueHandle) LazyInit() {
+	atomic.StoreInt64(&q.LastActiveTime, time.Now().Unix())
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
-	q.LastActiveTime = time.Now().Unix()
 	if q.status {
 		return
 	}
@@ -73,9 +73,9 @@ func (q *QueueHandle) PopData() interface{} {
 }
 
 func (q *QueueHandle) CanGc() bool {
+	b1 := time.Now().Unix()-atomic.LoadInt64(&q.LastActiveTime) > 3000
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
-	b1 := time.Now().Unix()-q.LastActiveTime > 3000
 	return q.status && b1 && q.Size() <= 0
 }
 

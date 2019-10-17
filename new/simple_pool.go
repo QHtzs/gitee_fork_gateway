@@ -7,6 +7,7 @@ package main
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 //内存申请
@@ -139,6 +140,18 @@ type MemPool struct {
 	MemBrickList *MemBrick
 	pmu          sync.RWMutex
 	TotalCall    uint64
+	LastRcdTime  int64
+}
+
+func (m *MemPool) IsTimeOut(sec int64) bool {
+	ret := false
+	if time.Now().Unix()-atomic.LoadInt64(&m.LastRcdTime) > sec {
+		if atomic.LoadInt64(&m.LastRcdTime) > 0 {
+			ret = true
+		}
+		atomic.StoreInt64(&m.LastRcdTime, time.Now().Unix())
+	}
+	return ret
 }
 
 func (m *MemPool) removeOneNode() {
@@ -241,7 +254,8 @@ func (m *MemPool) GetEntity(ack_time, size int) *MemEntity {
 		ret = m.getEntity(ack_time, size)
 	}
 	atomic.AddUint64(&m.TotalCall, 1)
-	if atomic.LoadUint64(&m.TotalCall)%1000 == 0 {
+	if atomic.LoadUint64(&m.TotalCall)%1000 == 0 || m.IsTimeOut(300) {
+		//引用1000次或者每超过5min做一次检查
 		//添加简单的gc措施，实际操作可不回收
 		//该过程是便于高峰之后缓慢降低内存占用，略微提高抗攻击性能
 		m.removeOneNode()
