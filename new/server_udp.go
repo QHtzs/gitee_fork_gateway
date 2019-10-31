@@ -54,6 +54,15 @@ func (u *UdpServerEntity) BroadCastData(data DataWrapper) {
 	}
 }
 
+func (u *UdpServerEntity) SerialActivityMap(serial string) map[string]bool {
+	ret := make(map[string]bool, 1+len(u.ToBroadCast))
+	ret[u.GetSerial()] = u.SerialIsActivity(serial)
+	for _, v := range u.ToBroadCast {
+		ret[v.GetSerial()] = v.SerialIsActivity(serial)
+	}
+	return ret
+}
+
 func (u *UdpServerEntity) readUdpData() {
 	src := u.Pool.GetEntity(1, 1024)
 	defer src.ReleaseOnece()

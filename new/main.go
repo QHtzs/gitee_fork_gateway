@@ -37,7 +37,7 @@ var WEB_ACCEPT []byte = []byte("WEB_ACCEPT")
 type BeatPackageEntity struct {
 	Beat     []byte
 	AckBeat  []byte
-	Interval int64 //为0时则只被动响应，不发送心跳
+	Interval int64 //为0时则只被动响应，不发送心跳, 单位秒
 }
 
 //
@@ -146,26 +146,17 @@ type ConChangeObserverEntity struct {
 }
 
 func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) {
-	web := false
-	app := false
 
-	for _, s := range vs {
-		if s.SerialIsActivity(serial) {
-			if s.GetSerial() == SERVER_WEB {
-				web = true
-			} else if s.GetSerial() == SERVER_APP {
-				app = true
-			}
+	mp := v.SerialActivityMap(serial)
+	for _, vi := range vs {
+		mp0 := vi.SerialActivityMap(serial)
+		for key, value := range mp0 {
+			mp[key] = value
 		}
 	}
 
-	if v.SerialIsActivity(serial) {
-		if v.GetSerial() == SERVER_WEB {
-			web = true
-		} else if v.GetSerial() == SERVER_APP {
-			app = true
-		}
-	}
+	app := mp[SERVER_APP]
+	web := mp[SERVER_WEB]
 
 	var bytes []byte
 	if web && app {
@@ -499,7 +490,7 @@ func main() {
 			&pool,
 			v,
 			&CryptEntity{},
-			&ConChangeObserverEntity{},
+			nil, //&ConChangeObserverEntity{},
 			&AckEntity{},
 			&TcpPackageParseEntity{})
 	} else {
@@ -507,7 +498,7 @@ func main() {
 			&pool,
 			v,
 			nil,
-			&ConChangeObserverEntity{},
+			nil, //&ConChangeObserverEntity{},
 			&AckEntity{},
 			&TcpPackageParseEntity{})
 	}

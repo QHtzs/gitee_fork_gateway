@@ -61,6 +61,15 @@ func (w *WebSocketServerEntity) BroadCastData(data DataWrapper) {
 	}
 }
 
+func (w *WebSocketServerEntity) SerialActivityMap(serial string) map[string]bool {
+	ret := make(map[string]bool, 1+len(w.ToBroadCast))
+	ret[w.GetSerial()] = w.SerialIsActivity(serial)
+	for _, v := range w.ToBroadCast {
+		ret[v.GetSerial()] = v.SerialIsActivity(serial)
+	}
+	return ret
+}
+
 func (w *WebSocketServerEntity) wread(con *websocket.Conn, entity *MemEntity) (int, error) {
 	var tmp []byte = make([]byte, 0, 0)
 	bytes, _ := entity.Bytes()

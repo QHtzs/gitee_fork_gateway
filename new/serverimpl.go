@@ -38,11 +38,12 @@ type AckImpl interface {
 
 //服务接口
 type ServerImpl interface {
-	AddToDistributeEntity(v ServerImpl)  //对象关联, v为接收句柄对象,以及数据交互是否加密
-	SerialIsActivity(serial string) bool //判断socket是否连接
-	GetSerial() string                   //获取序列号
-	AddDataForWrite(data DataWrapper)    //写入数据转发队列
-	BroadCastData(data DataWrapper)      //广播数据
+	AddToDistributeEntity(v ServerImpl)              //对象关联, v为接收句柄对象,以及数据交互是否加密
+	SerialIsActivity(serial string) bool             //判断socket是否连接
+	GetSerial() string                               //获取序列号
+	AddDataForWrite(data DataWrapper)                //写入数据转发队列
+	BroadCastData(data DataWrapper)                  //广播数据
+	SerialActivityMap(serial string) map[string]bool //是否活跃
 }
 
 //数据封装,用于存放进chan

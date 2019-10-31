@@ -92,6 +92,15 @@ func (t *TcpServerEntity) BroadCastData(data DataWrapper) {
 	}
 }
 
+func (t *TcpServerEntity) SerialActivityMap(serial string) map[string]bool {
+	ret := make(map[string]bool, 1+len(t.ToBroadCast))
+	ret[t.GetSerial()] = t.SerialIsActivity(serial)
+	for _, v := range t.ToBroadCast {
+		ret[v.GetSerial()] = v.SerialIsActivity(serial)
+	}
+	return ret
+}
+
 //添加con
 func (t *TcpServerEntity) addMontitor(serial string, con *WrapConn) {
 	v, ok := t.MonitorCons.LoadOrStore(serial, con)
@@ -151,7 +160,7 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 		beat := t.BeatInf.BeatBytes()
 		freq := t.BeatInf.BeatInteval()
 
-		if freq < 1 { //时间间隔小于1时，不主动发心跳，只做被动响应
+		if freq < 1 { //时间间隔小于1，不主动发心跳，只做被动响应
 			return
 		}
 
@@ -187,9 +196,8 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 				}
 			}
 			t.rw_mutex.RUnlock()
-			time.Sleep(time.Duration(freq*800) * time.Microsecond)
+			time.Sleep(time.Duration(freq*800) * time.Millisecond)
 		}
-
 	}
 }
 
@@ -497,6 +505,9 @@ func (t *TcpServerEntity) StartListen() {
 	for i := 0; i < 5; i++ {
 		go t.newComeConHandle(-1) //固定5个协程
 	}
+
+	go t.createBeatSendHandle()
+
 	index := 0
 	num := 0
 	sample_time := time.Now().Unix()
