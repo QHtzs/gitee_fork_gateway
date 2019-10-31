@@ -189,6 +189,7 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 
 	//推送给GATEWAY
 	if v.GetSerial() == SERVER_GATEWAY {
+		time.Sleep(200 * time.Millisecond)
 		v.AddDataForWrite(data)
 	} else {
 		for _, s := range vs {
