@@ -188,26 +188,37 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 	}
 
 	//推送给GATEWAY
-	for _, s := range vs {
-		if s.GetSerial() == SERVER_GATEWAY {
-			s.AddDataForWrite(data)
+	if v.GetSerial() == SERVER_GATEWAY {
+		v.AddDataForWrite(data)
+	} else {
+		for _, s := range vs {
+			if s.GetSerial() == SERVER_GATEWAY {
+				s.AddDataForWrite(data)
+			}
 		}
 	}
 }
 
 func (c *ConChangeObserverEntity) SDisConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) {
+	if v.GetSerial() == SERVER_GATEWAY {
+		return
+	}
 	c.SNewConnect(serial, entity, v, vs...)
 }
 
-func (c *ConChangeObserverEntity) HNewConnect(serial string) {
-	url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_CONNECT)
-	HttpGet(url)
+func (c *ConChangeObserverEntity) HNewConnect(serial string, v ServerImpl) {
+	if v.GetSerial() == SERVER_GATEWAY { //当对象为GATEWAY触发
+		url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_CONNECT)
+		HttpGet(url)
+	}
 	//HSet("STATUS", serial, "1") //不采用redis记录状态
 }
 
-func (c *ConChangeObserverEntity) HDisConnect(serial string) {
-	url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_DISCONNECT)
-	HttpGet(url)
+func (c *ConChangeObserverEntity) HDisConnect(serial string, v ServerImpl) {
+	if v.GetSerial() == SERVER_GATEWAY { //当对象为GATEWAY触发
+		url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_DISCONNECT)
+		HttpGet(url)
+	}
 	//HSet("STATUS", serial, "0") //不采用redis记录状态
 }
 
@@ -490,7 +501,7 @@ func main() {
 			&pool,
 			v,
 			&CryptEntity{},
-			nil, //&ConChangeObserverEntity{},
+			&ConChangeObserverEntity{},
 			&AckEntity{},
 			&TcpPackageParseEntity{})
 	} else {
@@ -498,7 +509,7 @@ func main() {
 			&pool,
 			v,
 			nil,
-			nil, //&ConChangeObserverEntity{},
+			&ConChangeObserverEntity{},
 			&AckEntity{},
 			&TcpPackageParseEntity{})
 	}

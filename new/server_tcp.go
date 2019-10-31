@@ -234,7 +234,7 @@ func (t *TcpServerEntity) createReadroutine(con *WrapConn, serial string) {
 			t.removeTcpConn(serial, con)
 			con.Close()
 			if t.ObserverInf != nil { //观察存在时
-				t.ObserverInf.HDisConnect(serial)
+				t.ObserverInf.HDisConnect(serial, t)
 				t.ObserverInf.SDisConnect(serial, hd, t, t.ToBroadCast...)
 			}
 			break
@@ -470,7 +470,7 @@ func (t *TcpServerEntity) newComeConHandle(handle_id int) {
 					t.addTcpConn(serial, WConn)
 
 					if t.ObserverInf != nil {
-						t.ObserverInf.HNewConnect(serial)
+						t.ObserverInf.HNewConnect(serial, t)
 						t.ObserverInf.SNewConnect(serial, buf, t, t.ToBroadCast...)
 					}
 

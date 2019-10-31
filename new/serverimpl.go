@@ -21,8 +21,8 @@ type CryptImpl interface {
 type ConChangeObserverImpl interface {
 	SNewConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) //新连接,反馈给Tcp/udp server
 	SDisConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) //连接断开,反馈给Tcp/udp server
-	HNewConnect(serial string)                                                    //新连接,  反馈给http
-	HDisConnect(serial string)                                                    //连接断开，反馈给http
+	HNewConnect(serial string, v ServerImpl)                                      //新连接,  反馈给http
+	HDisConnect(serial string, v ServerImpl)                                      //连接断开，反馈给http
 }
 
 //解包器,并返回业务处理后需要反馈结果到toself, tocast发送给自己，转发给其它。 返回byte长度
