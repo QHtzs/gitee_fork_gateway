@@ -171,11 +171,11 @@ func (t *TcpServerEntity) createBeatSendHandle() {
 			for i := 0; i < size; i++ {
 				buf0[i] = beat[i]
 			}
-			ok, size, _ := t.CryptInf.EncryPt(buf0, buf1, size, 8*size)
+			ok, _, dsize := t.CryptInf.EncryPt(buf0, buf1, size, 8*size)
 			if !ok {
 				panic("心跳包加密失败")
 			}
-			beat = buf0[0:size]
+			beat = buf1[0:dsize]
 			buf0 = nil
 			buf1 = nil
 		}

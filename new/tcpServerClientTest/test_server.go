@@ -8,9 +8,11 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net"
-	"strconv"
+	"os"
 	"sync/atomic"
 	"time"
 )
@@ -18,6 +20,43 @@ import (
 var CONNECTTING_NUM int64 = 0
 var FAILED_CONNECT_NUM int64 = 0
 var LOST_CONNECT int64 = 0
+
+type Configure struct {
+	XMLName    xml.Name `xml:"Config"`
+	Wp         string   `xml:"Wp"`
+	Gp         string   `xml:"Gp"`
+	Cp         string   `xml:"Cp"`
+	Ws         bool     `xml:"Ws"`
+	Gs         bool     `xml:"Gs"`
+	Cs         bool     `xml:"Cs"`
+	We         bool     `xml:"We"`
+	Ge         bool     `xml:"Ge"`
+	Ce         bool     `xml:"Ce"`
+	Wn         int      `xml:"Wn"`
+	Gn         int      `xml:"Gn"`
+	Cn         int      `xml:"Cn"`
+	Wf         int      `xml:"Wf"`
+	Gf         int      `xml:"Gf"`
+	Cf         int      `xml:"Cf"`
+	Wmsg       bool     `xml:"Wmsg"`
+	Gmsg       bool     `xml:"Gmsg"`
+	Cmsg       bool     `xml:"Cmsg"`
+	ConfirmFmt string   `xml:"ConfirmFmt"`
+	Inteval    int64    `xml:"Inteval"`
+}
+
+func (c *Configure) Init(xmlfile string) {
+	file, err := os.Open(xmlfile)
+	if err != nil {
+		panic("配置文件读取失败，请确保配置文件存在且路径正确:" + err.Error())
+	}
+	defer file.Close()
+	xml_bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		panic("配置文件读取失败，请确保配置文件存在且路径正确:" + err.Error())
+	}
+	err = xml.Unmarshal(xml_bytes, c)
+}
 
 func swap(a, b *byte) {
 	c := *a
@@ -70,11 +109,10 @@ func DeCrypt(src, dst []byte, length int) int { // length % 4 === 0
 }
 
 type TcpClientTest struct {
+	TypeName  string
 	ID        string
 	Socket    net.Conn
 	Address   string
-	Beat      []byte
-	Freq      int64
 	NeedEbcry bool
 	Buff      []byte
 	Buff2     []byte
@@ -104,15 +142,6 @@ func (t *TcpClientTest) Write(data []byte) bool {
 	return ret
 }
 
-func (t *TcpClientTest) CreateBeat() {
-	if t.Freq > 0 {
-		for {
-			time.Sleep(time.Duration(t.Freq) * time.Second)
-			t.Write(t.Beat)
-		}
-	}
-}
-
 func (t *TcpClientTest) Read() (string, bool) {
 	size, err := t.Socket.Read(t.Buff)
 	if err != nil {
@@ -123,13 +152,14 @@ func (t *TcpClientTest) Read() (string, bool) {
 	}
 	if t.NeedEbcry {
 		length := DeCrypt(t.Buff, t.Buff2, size)
+		//fmt.Println("--", t.Buff, "--", t.Buff2)
 		return string(t.Buff2[0:length]), true
 	} else {
 		return string(t.Buff[0:size]), true
 	}
 }
 
-func (t *TcpClientTest) Start(bbb bool) {
+func (t *TcpClientTest) Start(bbb bool, cfg *Configure) {
 	bl := t.Connect()
 	if bl {
 		atomic.AddInt64(&CONNECTTING_NUM, 1)
@@ -137,12 +167,10 @@ func (t *TcpClientTest) Start(bbb bool) {
 		acp, _ := t.Read()
 		fmt.Println(acp)
 
-		go t.CreateBeat()
-
 		go func(tt *TcpClientTest) {
 			for {
 				str, ok := tt.Read()
-				fmt.Println(tt.ID, ":", str, "current con:", atomic.LoadInt64(&CONNECTTING_NUM),
+				fmt.Println(tt.TypeName, tt.ID, ":", str, "current con:", atomic.LoadInt64(&CONNECTTING_NUM),
 					" failed:", atomic.LoadInt64(&FAILED_CONNECT_NUM),
 					" lost connect", atomic.LoadInt64(&LOST_CONNECT))
 				if !ok {
@@ -154,7 +182,7 @@ func (t *TcpClientTest) Start(bbb bool) {
 		if bbb {
 			go func(tt *TcpClientTest) {
 				for {
-					wstr := fmt.Sprintf(`{"time":"%d", "id":"%s", "a": {"b":"c"}}`, time.Now().Unix(), tt.ID)
+					wstr := fmt.Sprintf(`{"time":"%d","Type":"%s", "id":"%s", "a": {"b":"c"}}`, time.Now().Unix(), tt.TypeName, tt.ID)
 					lft := len(wstr) % 3
 					if lft == 1 {
 						wstr += "    "
@@ -162,7 +190,7 @@ func (t *TcpClientTest) Start(bbb bool) {
 						wstr += " "
 					}
 					ok := tt.Write([]byte(wstr))
-					time.Sleep(20 * time.Second)
+					time.Sleep(time.Duration(cfg.Inteval) * time.Second)
 					if !ok {
 						break
 					}
@@ -175,46 +203,89 @@ func (t *TcpClientTest) Start(bbb bool) {
 	}
 }
 
-func CreateTcps(id string) {
-	app := TcpClientTest{
-		ID:      id,
-		Address: ":9000",
-		Freq:    0,
-		Buff:    make([]byte, 512),
+func CreateTcps(id string, c *Configure, tp string) {
+	if tp == "C" {
+		app := TcpClientTest{
+			TypeName:  "App",
+			ID:        id,
+			Address:   ":" + c.Cp,
+			NeedEbcry: c.Ce,
+			Buff:      make([]byte, 512),
+			Buff2:     make([]byte, 1024),
+		}
+
+		if c.Cs {
+			app.Start(c.Cmsg, c)
+		}
 	}
 
-	web := TcpClientTest{
-		ID:      id,
-		Address: ":8001",
-		Freq:    0,
-		Buff:    make([]byte, 512),
+	if tp == "W" {
+
+		web := TcpClientTest{
+			TypeName:  "Web",
+			ID:        id,
+			Address:   ":" + c.Wp,
+			NeedEbcry: c.We,
+			Buff:      make([]byte, 512),
+			Buff2:     make([]byte, 1024),
+		}
+
+		if c.Ws {
+			web.Start(c.Wmsg, c)
+		}
 	}
 
-	gateway := TcpClientTest{
-		ID:        id,
-		Address:   ":8000",
-		Freq:      0,
-		NeedEbcry: true,
-		Beat:      []byte("ALIVE"),
-		Buff:      make([]byte, 512),
-		Buff2:     make([]byte, 1024),
-	}
+	if tp == "G" {
+		gateway := TcpClientTest{
+			TypeName:  "GateWay",
+			ID:        id,
+			Address:   ":" + c.Gp,
+			NeedEbcry: c.Ge,
+			Buff:      make([]byte, 512),
+			Buff2:     make([]byte, 1024),
+		}
 
-	app.Start(false)
-	web.Start(false)
-	gateway.Start(true)
+		if c.Gs {
+			gateway.Start(c.Gmsg, c)
+		}
+	}
 }
 
 func main() {
-	for i := 0; i < 1000; i++ { // num * 3
-		id := "TTG_DEMO_" + strconv.Itoa(i)
+	cfg := Configure{}
+	cfg.Init("test_conf.xml")
+	for i := cfg.Wf; i < cfg.Wn+cfg.Wf; i++ {
+		id := fmt.Sprintf(cfg.ConfirmFmt, i)
 		k := len(id) % 3
 		if k > 0 {
 			for j := 0; j < 3-k; j++ {
 				id += " "
 			}
 		}
-		go CreateTcps(id)
+		go CreateTcps(id, &cfg, "W")
 	}
+
+	for i := cfg.Gf; i < cfg.Gn+cfg.Gf; i++ {
+		id := fmt.Sprintf(cfg.ConfirmFmt, i)
+		k := len(id) % 3
+		if k > 0 {
+			for j := 0; j < 3-k; j++ {
+				id += " "
+			}
+		}
+		go CreateTcps(id, &cfg, "G")
+	}
+
+	for i := cfg.Cf; i < cfg.Cn+cfg.Cf; i++ {
+		id := fmt.Sprintf(cfg.ConfirmFmt, i)
+		k := len(id) % 3
+		if k > 0 {
+			for j := 0; j < 3-k; j++ {
+				id += " "
+			}
+		}
+		go CreateTcps(id, &cfg, "C")
+	}
+
 	time.Sleep(1 * time.Hour)
 }

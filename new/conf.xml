@@ -11,7 +11,7 @@
 </Ports>
 
 <Encrypt>
-<GateWay>false</GateWay>
+<GateWay>true</GateWay>
 </Encrypt>
 
 <Redis>
