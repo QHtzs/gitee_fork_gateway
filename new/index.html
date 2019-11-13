@@ -14,7 +14,9 @@
     <input type="button" name="button" id="button" value="提交" onclick="sk_send()"/>
     <script type="text/javascript">
         var sock = null;
-        var wsuri = "ws://127.0.0.1:9009/websocket";
+        <!-- https-->wss , http-->ws -->
+        var ishttps = 'https:' == document.location.protocol ? true: false;
+        var wsuri = ishttps ? "wss://127.0.0.1:9009/websocket": "ws://127.0.0.1:9009/websocket";
         sock = new WebSocket(wsuri);
         sock.onmessage = function(e) {
             var result = document.getElementById('result');

@@ -50,8 +50,15 @@ type TtgEncrypt struct {
 	GateWay bool     `xml:"GateWay"`
 }
 
+type HttpsConf struct {
+	XMLName xml.Name `xml:"Https"`
+	Crt     string   `xml:"Crt"`
+	Key     string   `xml:"Key"`
+}
+
 type Configure struct {
 	XMLName      xml.Name        `xml:"servers"`
+	Https        HttpsConf       `xml:"Https"`
 	Ports        TtgTcpPorts     `xml:"Ports"`
 	BeatPackages TtgBeatPackages `xml:"BeatPackages"`
 	RedisCfg     TtgRedisCfg     `xml:"Redis"`

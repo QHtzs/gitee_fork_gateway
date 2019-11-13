@@ -10,6 +10,11 @@
 <WsPort>9009</WsPort>
 </Ports>
 
+<Https>
+<Crt></Crt>
+<Key></Key>
+</Https>
+
 <Encrypt>
 <GateWay>true</GateWay>
 </Encrypt>

@@ -221,7 +221,15 @@ func (w *WebSocketServerEntity) StartListen() {
 	http.Handle("/websocket", websocket.Handler(w.WebSockHandle))
 	http.HandleFunc("/", w.Index)
 	go w.createWriteConroutine()
-	if err := http.ListenAndServe(":"+w.port, nil); err != nil {
-		log.Fatal(err)
+
+	if ConfigInstance.Https.Crt == "" || ConfigInstance.Https.Key == "" {
+		log.Println("warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启")
+		if err := http.ListenAndServe(":"+w.port, nil); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		if err := http.ListenAndServeTLS(":"+w.port, ConfigInstance.Https.Crt, ConfigInstance.Https.Key, nil); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
