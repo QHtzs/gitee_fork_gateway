@@ -7,12 +7,12 @@
 <GateWay id="port2">8000</GateWay>
 <Control id="port3">9000</Control>
 <UdpPort>9001</UdpPort>
-<WsPort>9009</WsPort>
+<WsPort>8002</WsPort>
 </Ports>
 
 <Https>
-<Crt></Crt>
-<Key></Key>
+<Crt>server.crt</Crt>
+<Key>server.key</Key>
 </Https>
 
 <Encrypt>
