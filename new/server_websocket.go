@@ -5,7 +5,6 @@ web socket
 */
 
 import (
-	"html/template"
 	"log"
 	"net/http"
 	"time"
@@ -212,8 +211,7 @@ func (w *WebSocketServerEntity) Index(hw http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		return
 	}
-	t, _ := template.ParseFiles("index.html")
-	t.Execute(hw, nil)
+	hw.Write([]byte(IndexPage))
 }
 
 func (w *WebSocketServerEntity) StartListen() {

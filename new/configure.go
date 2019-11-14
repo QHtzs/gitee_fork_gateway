@@ -66,6 +66,7 @@ type Configure struct {
 	NeedEncrypt  TtgEncrypt      `xml:"Encrypt"`
 	LogFilePath  string          `xml:"LogFilePath"`
 	PProfDebuger bool            `xml:"PProfDebuger"`
+	Host         string          `xml:"Host"`
 }
 
 func load_config(filename string) Configure {
@@ -80,6 +81,9 @@ func load_config(filename string) Configure {
 		panic("配置文件读取失败，请确保配置文件存在且路径正确:" + err.Error())
 	}
 	err = xml.Unmarshal(xml_bytes, &cfg)
+	if cfg.Host == "" {
+		cfg.Host = "127.0.0.1"
+	}
 	return cfg
 }
 

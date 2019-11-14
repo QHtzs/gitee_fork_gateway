@@ -1,3 +1,10 @@
+package main
+
+import (
+	"fmt"
+)
+
+var IndexPage string = fmt.Sprintf(`
 <html>
 <head>
     <meta charset="utf-8"/>
@@ -14,10 +21,12 @@
     <input type="button" name="button" id="button" value="提交" onclick="sk_send()"/>
     <script type="text/javascript">
         var sock = null;
-        <!-- https-->wss , http-->ws -->
+        var domain_path = "%s:%s/websocket"
+        
         var ishttps = 'https:' == document.location.protocol ? true: false;
-        var wsuri = ishttps ? "wss://127.0.0.1:9009/websocket": "ws://127.0.0.1:9009/websocket";
+        var wsuri = ishttps ? "wss://"+domain_path: "ws://"+domain_path;
         sock = new WebSocket(wsuri);
+        
         sock.onmessage = function(e) {
             var result = document.getElementById('result');
             var text = (e.data.text && e.data.text()) || e.data;
@@ -26,7 +35,7 @@
         }
         
         sock.onclose = function(e){
-          alert("websocket 连接断开， 请刷新页面")
+          alert("websocket 连接断开， 请刷新页面[本页面host:ip]")
         }
             
         function sk_send() {
@@ -35,4 +44,4 @@
         }
     </script>
 </body>
-</html>
+</html>`, ConfigInstance.Host, ConfigInstance.Ports.WsPort)
