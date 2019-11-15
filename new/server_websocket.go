@@ -211,7 +211,7 @@ func (w *WebSocketServerEntity) Index(hw http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		return
 	}
-	hw.Write([]byte(IndexPage))
+	hw.Write(IndexPageBuff)
 }
 
 func (w *WebSocketServerEntity) StartListen() {

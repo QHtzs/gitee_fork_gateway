@@ -2,6 +2,8 @@ package main
 
 /*
 网关转发系统
+@author: TTG
+@brief: 绝大部分具体逻辑实现实例
 */
 
 import (
@@ -40,16 +42,17 @@ type BeatPackageEntity struct {
 	Interval int64 //为0时则只被动响应，不发送心跳, 单位秒
 }
 
-//
+//生成心跳内容
 func (b *BeatPackageEntity) BeatBytes() []byte {
 	return b.Beat
 }
 
-//
+//生成心跳响应内容
 func (b *BeatPackageEntity) BeatAckBytes() []byte {
 	return b.AckBeat
 }
 
+//心跳发送时间间隔
 func (b *BeatPackageEntity) BeatInteval() int64 {
 	return b.Interval
 }
@@ -58,6 +61,7 @@ func (b *BeatPackageEntity) BeatInteval() int64 {
 type CryptEntity struct {
 }
 
+//判断 bytes是否被包含
 func contains(src, substr []byte, src_len, substr_len int) (bool, int) {
 	ret := false
 
@@ -79,6 +83,7 @@ func contains(src, substr []byte, src_len, substr_len int) (bool, int) {
 	return ret, 0
 }
 
+//从二进制字符中移除字节
 func removeBytes(src []byte, index, src_size, sub_size int) {
 	for i := index; i < src_size; i++ {
 		if i < src_size-sub_size {
@@ -87,6 +92,7 @@ func removeBytes(src []byte, index, src_size, sub_size int) {
 	}
 }
 
+//清除左边空白
 func trimLeft(src []byte, src_len int, ch byte) int {
 	m := 0
 	for i := 0; i < src_len; i++ {
@@ -101,6 +107,7 @@ func trimLeft(src []byte, src_len int, ch byte) int {
 
 }
 
+//加密函数
 func (c *CryptEntity) EncryPt(src, dst []byte, src_len, dst_buff_len int) (bool, int, int) {
 
 	k := src_len % 3
@@ -123,6 +130,7 @@ func (c *CryptEntity) EncryPt(src, dst []byte, src_len, dst_buff_len int) (bool,
 
 }
 
+//解密函数
 func (c *CryptEntity) DeCrypt(src, dst []byte, src_len, dst_buff_len int) (bool, int, int) {
 
 	if src_len*3/4 > dst_buff_len { //dst buff not enough
@@ -145,6 +153,7 @@ func (c *CryptEntity) DeCrypt(src, dst []byte, src_len, dst_buff_len int) (bool,
 type ConChangeObserverEntity struct {
 }
 
+//tcp socket新连接接入触发信号, 消息传入对于gateway
 func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) {
 
 	mp := v.SerialActivityMap(serial)
@@ -200,6 +209,7 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 	}
 }
 
+//tcp socket断开触发 消息传入对于gateway
 func (c *ConChangeObserverEntity) SDisConnect(serial string, entity *MemEntity, v ServerImpl, vs ...ServerImpl) {
 	if v.GetSerial() == SERVER_GATEWAY {
 		return
@@ -207,6 +217,7 @@ func (c *ConChangeObserverEntity) SDisConnect(serial string, entity *MemEntity, 
 	c.SNewConnect(serial, entity, v, vs...)
 }
 
+//tcp socket新连接接入触发信号, 消息传入http服务
 func (c *ConChangeObserverEntity) HNewConnect(serial string, v ServerImpl) {
 	if v.GetSerial() == SERVER_GATEWAY { //当对象为GATEWAY触发
 		url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_CONNECT)
@@ -215,6 +226,7 @@ func (c *ConChangeObserverEntity) HNewConnect(serial string, v ServerImpl) {
 	//HSet("STATUS", serial, "1") //不采用redis记录状态
 }
 
+//tcp socket断开触发, 消息传入http服务
 func (c *ConChangeObserverEntity) HDisConnect(serial string, v ServerImpl) {
 	if v.GetSerial() == SERVER_GATEWAY { //当对象为GATEWAY触发
 		url := fmt.Sprintf("%s?serial=%s&gateway_status=%i", ConfigInstance.Other.StatusUrl, serial, GATEWAY_DISCONNECT)
@@ -227,6 +239,7 @@ func (c *ConChangeObserverEntity) HDisConnect(serial string, v ServerImpl) {
 type AckEntity struct {
 }
 
+//新连接时认证， 含monitor查看端认证，和设备连接认证
 func (a *AckEntity) AckSerial(con net.Conn, buf *MemEntity, v CryptImpl) (bool, string, int) {
 	data, piece := buf.Bytes()
 	con.SetDeadline(time.Now().Add(5 * time.Second))
@@ -279,6 +292,7 @@ func (a *AckEntity) AckSerial(con net.Conn, buf *MemEntity, v CryptImpl) (bool, 
 
 }
 
+//接收或者拒绝连接
 func (a *AckEntity) AckConnect(con net.Conn, serial string, buf *MemEntity, v CryptImpl) error {
 	var err error = nil
 	if v == nil {
@@ -311,7 +325,7 @@ func (a *AckEntity) AckConnect(con net.Conn, serial string, buf *MemEntity, v Cr
 type TcpPackageParseEntity struct {
 }
 
-//checkjson
+//简单规则评估包是不是json。
 func (p *TcpPackageParseEntity) checkMayJson(bys []byte, l int) (from int, to int) {
 	from = -1
 	to = -1
@@ -342,6 +356,7 @@ func (p *TcpPackageParseEntity) checkMayJson(bys []byte, l int) (from int, to in
 
 }
 
+//解析接收到的数据
 func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (int, int, string, bool) {
 
 	bytes, piece := src.Bytes()
@@ -425,7 +440,7 @@ func (p *TcpPackageParseEntity) Parser(server_serial, tcp_serial string, src, to
 
 }
 
-//微信包结构
+//Udp结构
 type UdpPackage struct {
 	Message string `json:"message"`
 	Type    string `json:"type"`
@@ -466,6 +481,7 @@ func (w *WEIXINPackageParseEntity) Parser(server_serial, udp_serial string, src,
 type WebSocketParse struct {
 }
 
+//websocket解析
 func (w *WebSocketParse) Parser(server_serial, cur_con_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (s_size int, c_size int, serial string, beat bool) {
 	bytes, _ := src.Bytes()
 	sbytes, _ := toself.Bytes()

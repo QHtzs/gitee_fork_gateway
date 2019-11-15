@@ -1,10 +1,15 @@
 package main
 
+/*
+@author: TTG
+@brief: websocket初始页内容, 写死嵌入在代码中,主要用作测试
+*/
+
 import (
 	"fmt"
 )
 
-var IndexPage string = fmt.Sprintf(`
+var IndexPageBuff []byte = []byte(fmt.Sprintf(`
 <html>
 <head>
     <meta charset="utf-8"/>
@@ -44,4 +49,4 @@ var IndexPage string = fmt.Sprintf(`
         }
     </script>
 </body>
-</html>`, ConfigInstance.Host, ConfigInstance.Ports.WsPort)
+</html>`, ConfigInstance.Host, ConfigInstance.Ports.WsPort))

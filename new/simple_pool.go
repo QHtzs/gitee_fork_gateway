@@ -1,7 +1,8 @@
 package main
 
 /*
-简单内存池，及其管理器.
+@brief:简单内存池，及其管理器.
+@author: TTG
 */
 
 import (
@@ -111,10 +112,12 @@ type MemEntity struct {
 	PoolPtr  *MemPool
 }
 
+//获取内存首地址及其长度
 func (m *MemEntity) Bytes() ([]byte, int) {
 	return m.Brick.LoadMem(m.Index)
 }
 
+//拷贝
 func (m *MemEntity) Copy(ack_time, cp_len int) *MemEntity {
 	src, size := m.Bytes()
 	entity := m.PoolPtr.GetEntity(ack_time, size)
@@ -125,6 +128,7 @@ func (m *MemEntity) Copy(ack_time, cp_len int) *MemEntity {
 	return entity
 }
 
+//占有引用数减少一次
 func (m *MemEntity) ReleaseOnece() {
 	v := atomic.AddInt32(m.AckTimes, -1)
 	if v == 0 {
@@ -132,6 +136,7 @@ func (m *MemEntity) ReleaseOnece() {
 	}
 }
 
+//完全释放占有
 func (m *MemEntity) FullRelease() {
 	m.Brick.ReleaseAcq(m.Index)
 }
@@ -143,6 +148,7 @@ type MemPool struct {
 	LastRcdTime  int64
 }
 
+//是否超时
 func (m *MemPool) IsTimeOut(sec int64) bool {
 	ret := false
 	if time.Now().Unix()-atomic.LoadInt64(&m.LastRcdTime) > sec {
@@ -154,6 +160,7 @@ func (m *MemPool) IsTimeOut(sec int64) bool {
 	return ret
 }
 
+//移除一个membrick元素
 func (m *MemPool) removeOneNode() {
 	if m.MemBrickList == nil {
 		return
@@ -192,6 +199,7 @@ func (m *MemPool) removeOneNode() {
 	}
 }
 
+//对齐，获得最优对齐值
 func (m *MemPool) findBestFix(size int) int {
 	ret := 4
 	for ret < size {
@@ -200,6 +208,7 @@ func (m *MemPool) findBestFix(size int) int {
 	return ret
 }
 
+//增加新的membrick元素
 func (m *MemPool) addNew(size int) {
 	mc := new(MemBrick)
 	mc.Alloc(1024, size)
@@ -212,6 +221,7 @@ func (m *MemPool) addNew(size int) {
 	}
 }
 
+//获取实例
 func (m *MemPool) getEntity(ack_time, size int) *MemEntity {
 	if m.MemBrickList == nil {
 		fit := m.findBestFix(size)
@@ -248,6 +258,7 @@ func (m *MemPool) getEntity(ack_time, size int) *MemEntity {
 	return ret
 }
 
+//获取实例
 func (m *MemPool) GetEntity(ack_time, size int) *MemEntity {
 	ret := m.getEntity(ack_time, size)
 	if ret == nil {
@@ -263,6 +274,7 @@ func (m *MemPool) GetEntity(ack_time, size int) *MemEntity {
 	return ret
 }
 
+//池的内存大小
 func (m *MemPool) TotalSize() (Byte int64) {
 	Byte = 0
 	if m.MemBrickList == nil {

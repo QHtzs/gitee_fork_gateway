@@ -1,19 +1,22 @@
 package main
 
 /*
-变形的base64加密解密
+@author: TTG
+@brief:变形的base64加密解密
 */
 
 import (
 	"encoding/base64"
 )
 
+//swap函数
 func swap(a, b *byte) {
 	c := *a
 	*a = *b
 	*b = c
 }
 
+//顺序打乱
 func MixFour(src []byte, length int) {
 	i := 0
 	for i < length-3 {
@@ -23,6 +26,7 @@ func MixFour(src []byte, length int) {
 	}
 }
 
+//顺序调正
 func DeMixFour(src []byte, length int) {
 	i := 0
 	for i < length-3 {
@@ -32,6 +36,7 @@ func DeMixFour(src []byte, length int) {
 	}
 }
 
+//加密
 func EncryPt(src, dst []byte, length int) int { // length % 3 === 0
 	base64.StdEncoding.Encode(dst, src[0:length])
 	length = length / 3
@@ -40,6 +45,7 @@ func EncryPt(src, dst []byte, length int) int { // length % 3 === 0
 	return length
 }
 
+//解密
 func DeCrypt(src, dst []byte, length int) int { // length % 4 === 0
 	DeMixFour(src, length)
 	length, _ = base64.StdEncoding.Decode(dst, src[0:length])

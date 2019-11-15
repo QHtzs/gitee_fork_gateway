@@ -1,3 +1,8 @@
+/*
+@author: TTG
+@brief: file logger handle
+*/
+
 package main
 
 import (

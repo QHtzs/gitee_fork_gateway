@@ -7,20 +7,24 @@ import (
 	"time"
 )
 
+//对 net.Conn进行封装，添加个状态
 type WrapConn struct {
 	closed bool
 	net.Conn
 }
 
+//关闭连接
 func (w *WrapConn) Close() {
 	w.closed = true
 	w.Conn.Close()
 }
 
+//判断连接是否关闭
 func (w *WrapConn) IsClosed() bool {
 	return w.closed
 }
 
+//继承ServerImpl接口, 详情查看serverimpl.go的ServerImpl
 type TcpServerEntity struct {
 	Listener           net.Listener          //服务监听器
 	BeatInf            BeatPackageImpl       //心跳处理接口
@@ -44,6 +48,7 @@ type TcpServerEntity struct {
 	tcpport            string                //服务开启地址
 }
 
+//初始化
 func (t *TcpServerEntity) Init(port, serial string, can_dup, needfb bool, con_queue_pool_size, writeConrutionSize, broadCastSize int, timeoutsec int64, pool *MemPool, bv BeatPackageImpl, cv CryptImpl, ov ConChangeObserverImpl, av AckImpl, pv PackageParseImpl) {
 	t.tcpport = port
 	t.Serial = serial
@@ -63,19 +68,23 @@ func (t *TcpServerEntity) Init(port, serial string, can_dup, needfb bool, con_qu
 	t.TcpClientCons.SetAllowDup(can_dup)
 }
 
+//类似重写
 func (t *TcpServerEntity) AddToDistributeEntity(v ServerImpl) {
 	t.ToBroadCast = append(t.ToBroadCast, v)
 }
 
+//类似重写
 func (t *TcpServerEntity) SerialIsActivity(serial string) bool {
 	ok := t.TcpClientCons.IsKeyExist(serial)
 	return ok
 }
 
+//类似重写
 func (t *TcpServerEntity) GetSerial() string {
 	return t.Serial
 }
 
+//类似重写
 func (t *TcpServerEntity) AddDataForWrite(data DataWrapper) {
 	if t.WriteConrutionSize > 0 {
 		t.MemQueue.SingelPut(data)
@@ -84,6 +93,7 @@ func (t *TcpServerEntity) AddDataForWrite(data DataWrapper) {
 	}
 }
 
+//类似重写
 func (t *TcpServerEntity) BroadCastData(data DataWrapper) {
 	for _, obj := range t.ToBroadCast {
 		if obj != nil {
@@ -92,6 +102,7 @@ func (t *TcpServerEntity) BroadCastData(data DataWrapper) {
 	}
 }
 
+//类似重写
 func (t *TcpServerEntity) SerialActivityMap(serial string) map[string]bool {
 	ret := make(map[string]bool, 1+len(t.ToBroadCast))
 	ret[t.GetSerial()] = t.SerialIsActivity(serial)
@@ -101,7 +112,7 @@ func (t *TcpServerEntity) SerialActivityMap(serial string) map[string]bool {
 	return ret
 }
 
-//添加con
+//添加con(monitor)
 func (t *TcpServerEntity) addMontitor(serial string, con *WrapConn) {
 	v, ok := t.MonitorCons.LoadOrStore(serial, con)
 	if ok { //两个连接都关闭
@@ -114,6 +125,7 @@ func (t *TcpServerEntity) addMontitor(serial string, con *WrapConn) {
 	}
 }
 
+//添加con (device)
 func (t *TcpServerEntity) addTcpConn(serial string, con *WrapConn) {
 	value := new(int64)
 	*value = time.Now().Unix()
@@ -133,7 +145,7 @@ func (t *TcpServerEntity) addTcpConn(serial string, con *WrapConn) {
 	}
 }
 
-//移除con
+//移除con(monitor)
 func (t *TcpServerEntity) removeMontitor(serial string) {
 	v, ok := t.MonitorCons.Load(serial)
 	if ok {
@@ -145,6 +157,7 @@ func (t *TcpServerEntity) removeMontitor(serial string) {
 	t.MonitorCons.Delete(serial)
 }
 
+//移除con(device)
 func (t *TcpServerEntity) removeTcpConn(serial string, con *WrapConn) {
 	t.rw_mutex.Lock()
 	if _, ok := t.LastBeatSend[serial]; ok {
@@ -209,6 +222,7 @@ func (t *TcpServerEntity) sendBeatAck(con *WrapConn, ack []byte) {
 	}
 }
 
+//创建读routine
 func (t *TcpServerEntity) createReadroutine(con *WrapConn, serial string) {
 	hd := t.Pool.GetEntity(1, 1024)
 	defer hd.ReleaseOnece()
@@ -350,6 +364,7 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 	return ret
 }
 
+//写入数据
 func (t *TcpServerEntity) writeDatatoCon(data DataWrapper, con *WrapConn) (bool, error) {
 
 	ret := false

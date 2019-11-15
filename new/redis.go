@@ -1,7 +1,8 @@
 package main
 
 /*
-建立redis池，并封装部分redis操作
+@author:TTG
+@brief:建立redis池，并封装部分redis操作。用于保存/改变 部分实时状态改变要求比较高的数据写入
 */
 
 import (

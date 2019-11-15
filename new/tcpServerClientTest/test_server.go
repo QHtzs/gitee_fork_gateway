@@ -2,8 +2,8 @@
 package main
 
 /*
-测试文件
-请单独编译
+@author: ttg
+@brief:测试文件,请单独编译
 */
 
 import (

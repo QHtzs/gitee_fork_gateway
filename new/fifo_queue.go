@@ -1,5 +1,11 @@
 package main
 
+/*
+@biref:阻塞式 先入先出 队列。采用 select [chan] 即 io的阻塞形式，来阻塞队列（队列满时添加元素阻塞， 队列空时取数阻塞）从而避免忙等造成cpu资源浪费
+
+@author: ttg
+*/
+
 import (
 	"container/list"
 	"sync"
@@ -17,6 +23,7 @@ type QueueHandle struct {
 	free           bool
 }
 
+//lazy式初始化
 func (q *QueueHandle) LazyInit() {
 	atomic.StoreInt64(&q.LastActiveTime, time.Now().Unix())
 	q.mutex.Lock()
@@ -30,12 +37,14 @@ func (q *QueueHandle) LazyInit() {
 	q.free = false
 }
 
+//队列长度
 func (q *QueueHandle) Size() int {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	return q.DeQueue.Len()
 }
 
+//添加对象
 func (q *QueueHandle) AddData(v interface{}) bool {
 	q.LazyInit()
 
@@ -56,6 +65,7 @@ func (q *QueueHandle) AddData(v interface{}) bool {
 	}
 }
 
+//取出对象
 func (q *QueueHandle) PopData() interface{} {
 	q.LazyInit()
 
@@ -72,6 +82,7 @@ func (q *QueueHandle) PopData() interface{} {
 	return nil
 }
 
+//判断队列是否符合 GC 条件
 func (q *QueueHandle) CanGc() bool {
 	b1 := time.Now().Unix()-atomic.LoadInt64(&q.LastActiveTime) > 3000
 	q.mutex.Lock()
@@ -79,6 +90,7 @@ func (q *QueueHandle) CanGc() bool {
 	return q.status && b1 && q.Size() <= 0
 }
 
+//标志为可回收
 func (q *QueueHandle) SetFree() {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
@@ -86,12 +98,14 @@ func (q *QueueHandle) SetFree() {
 	q.free = true
 }
 
+//队列封装
 type FifoQueue struct {
 	deque    sync.Map
 	single   *QueueHandle
 	calltime uint64
 }
 
+//添加元素
 func (f *FifoQueue) Put(serial string, v interface{}) {
 
 	actual, ok := f.deque.LoadOrStore(serial, &QueueHandle{})
@@ -122,10 +136,12 @@ func (f *FifoQueue) Put(serial string, v interface{}) {
 
 }
 
+//取出元素
 func (f *FifoQueue) Get(serial string) interface{} {
 
 	atomic.AddUint64(&f.calltime, 1)
 
+	//接触引用关系，交给系统回收
 	if atomic.LoadUint64(&f.calltime)%1000 == 0 {
 		capture := make(map[string]bool, 1)
 		f.deque.Range(func(key interface{}, value interface{}) bool {
@@ -158,6 +174,7 @@ func (f *FifoQueue) Get(serial string) interface{} {
 	return nil
 }
 
+//添加元素
 func (f *FifoQueue) SingelPut(v interface{}) {
 	if f.single == nil {
 		f.single = &QueueHandle{}
@@ -165,6 +182,7 @@ func (f *FifoQueue) SingelPut(v interface{}) {
 	f.single.AddData(v)
 }
 
+//取出元素
 func (f *FifoQueue) SingleGet() interface{} {
 	if f.single == nil {
 		f.single = &QueueHandle{}

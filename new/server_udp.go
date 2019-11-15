@@ -1,3 +1,7 @@
+/*
+@brief:UDP接口, 也是接口 ServerImpl 的对象
+*/
+
 package main
 
 import (
