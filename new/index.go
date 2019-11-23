@@ -40,11 +40,11 @@ var IndexPageBuff []byte = []byte(fmt.Sprintf(`
         }
         
         sock.onclose = function(e){
-          alert("websocket 连接断开， 请刷新页面[本页面host:ip]")
+          alert("websocket 连接断开， 请刷新页面")
         }
             
         function sk_send() {
-        	document.getElementById('result').innerHTML=""
+        	document.getElementById('result').innerHTML="收到回复:"
             var msg = document.getElementById('content').value;
             sock.send(msg);
         }
