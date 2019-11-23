@@ -484,16 +484,16 @@ type WebSocketParse struct {
 //websocket解析
 func (w *WebSocketParse) Parser(server_serial, cur_con_serial string, src, toself, tocast *MemEntity, src_len *int, v CryptImpl) (s_size int, c_size int, serial string, beat bool) {
 	bytes, _ := src.Bytes()
-	sbytes, _ := toself.Bytes()
+	//sbytes, _ := toself.Bytes()
 	cbytes, _ := tocast.Bytes()
 	for i := 0; i < *src_len; i++ {
 		cbytes[i] = bytes[i]
-		sbytes[i] = bytes[i]
+		//sbytes[i] = bytes[i]
 	}
-	sbytes[*src_len] = ':'
-	sbytes[*src_len+1] = 'O'
-	sbytes[*src_len+2] = 'K'
-	return *src_len + 3, *src_len, cur_con_serial, false
+	//sbytes[*src_len] = ':'
+	//sbytes[*src_len+1] = 'O'
+	//sbytes[*src_len+2] = 'K'
+	return 0, *src_len, cur_con_serial, false
 }
 
 func main() {

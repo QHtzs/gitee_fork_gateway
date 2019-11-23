@@ -44,6 +44,7 @@ var IndexPageBuff []byte = []byte(fmt.Sprintf(`
         }
             
         function sk_send() {
+        	document.getElementById('result').innerHTML=""
             var msg = document.getElementById('content').value;
             sock.send(msg);
         }
