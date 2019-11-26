@@ -191,6 +191,10 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 		}
 
 		if c_size > 0 {
+
+			tmp_byte, _ := tocast.Bytes()
+			log.Println("ws recieve:", string(tmp_byte[0:c_size]))
+
 			c_write := DataWrapper{
 				DataStore:       tocast,
 				UdpAddr:         nil,
@@ -199,7 +203,6 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 				SelfId:          "",
 				CreateUnixSec:   time.Now().Unix(),
 			}
-
 			w.BroadCastData(c_write)
 		} else {
 			tocast.FullRelease()

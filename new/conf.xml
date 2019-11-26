@@ -49,7 +49,7 @@
 </BeatPackages>
 
 <!--服务器对外域名,不填则为对内调试模式127.0.0.1-->
-<Host>www.i-ttg.net</Host>
+<Host></Host>
 
 <LogFilePath>log.log</LogFilePath>
 

@@ -18,9 +18,9 @@
 <Ce>false</Ce>
 
 <!-- routine number:并发开启客户端个数,仅启动配置为false时有效 -->
-<Wn>1000</Wn>
-<Gn>1000</Gn>
-<Cn>1000</Cn>
+<Wn>1</Wn>
+<Gn>1</Gn>
+<Cn>1</Cn>
 
 <!-- Id from: ID起始生成 -->
 <Wf>1</Wf>
@@ -37,7 +37,7 @@
 <Cmsg>false</Cmsg>
 
 <!-- 发送消息的时间间隔: 秒-->
-<Inteval>2</Inteval>
+<Inteval>40</Inteval>
 
 
 </Config>

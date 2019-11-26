@@ -170,7 +170,7 @@ func (t *TcpClientTest) Start(bbb bool, cfg *Configure) {
 		go func(tt *TcpClientTest) {
 			for {
 				str, ok := tt.Read()
-				fmt.Println(tt.TypeName, tt.ID, ":", str, "current con:", atomic.LoadInt64(&CONNECTTING_NUM),
+				fmt.Println(tt.TypeName, tt.ID, " info:", str, ";current con:", atomic.LoadInt64(&CONNECTTING_NUM),
 					" failed:", atomic.LoadInt64(&FAILED_CONNECT_NUM),
 					" lost connect", atomic.LoadInt64(&LOST_CONNECT))
 				if !ok {
