@@ -13,18 +13,18 @@ import (
 )
 
 type WebSocketServerEntity struct {
-	port        string           //端口
-	ToBroadCast []ServerImpl     //广播对象
-	Serial      string           //服务号
-	ParseInf    PackageParseImpl //消息解析
-	Pool        *MemPool         //pool
-	MemQueue    chan DataWrapper //消息
-	Map         NetConMap        //x
-	TimeOutSec  int64            //超时时间
-
+	port        string                //端口
+	ToBroadCast []ServerImpl          //广播对象
+	Serial      string                //服务号
+	ParseInf    PackageParseImpl      //消息解析
+	Pool        *MemPool              //pool
+	MemQueue    chan DataWrapper      //消息
+	Map         NetConMap             //x
+	TimeOutSec  int64                 //超时时间
+	ObserverInf ConChangeObserverImpl //观察接口
 }
 
-func (w *WebSocketServerEntity) Init(port, serial string, can_dup bool, cap_ int, timeoutsec int64, pool *MemPool, pv PackageParseImpl) {
+func (w *WebSocketServerEntity) Init(port, serial string, can_dup bool, cap_ int, timeoutsec int64, pool *MemPool, pv PackageParseImpl, ov ConChangeObserverImpl) {
 	w.port = port
 	w.Serial = serial
 	w.ParseInf = pv
@@ -33,6 +33,7 @@ func (w *WebSocketServerEntity) Init(port, serial string, can_dup bool, cap_ int
 	w.Pool = pool
 	w.TimeOutSec = timeoutsec
 	w.Map.SetAllowDup(can_dup)
+	w.ObserverInf = ov
 }
 
 func (w *WebSocketServerEntity) AddToDistributeEntity(v ServerImpl) {
@@ -163,6 +164,11 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 	}
 	log.Println(w.Serial, serial, "connect")
 
+	if w.ObserverInf != nil {
+		w.ObserverInf.HNewConnect(serial, w)
+		w.ObserverInf.SNewConnect(serial, entity, w, w.ToBroadCast...)
+	}
+
 	for {
 		length, _ = w.wread(ws, entity)
 
@@ -207,6 +213,10 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 		} else {
 			tocast.FullRelease()
 		}
+	}
+	if w.ObserverInf != nil {
+		w.ObserverInf.HDisConnect(serial, w)
+		w.ObserverInf.SDisConnect(serial, entity, w, w.ToBroadCast...)
 	}
 }
 

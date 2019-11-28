@@ -51,7 +51,7 @@
 <!--服务器对外域名,不填则为对内调试模式127.0.0.1-->
 <Host></Host>
 
-<LogFilePath>log.log</LogFilePath>
+<LogFilePath>i-ttg.com</LogFilePath>
 
 <!--是否开启net/PProf。 开启后本地访问http://127.0.0.1:7777/debug/pprof/ 可以查看程序运行信息-->
 <PProfDebuger>true</PProfDebuger>

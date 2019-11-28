@@ -166,6 +166,8 @@ func (c *ConChangeObserverEntity) SNewConnect(serial string, entity *MemEntity, 
 
 	app := mp[SERVER_APP]
 	web := mp[SERVER_WEB]
+	wss := mp[WEBSOCKET]
+	web = web || wss
 
 	var bytes []byte
 	if web && app {
@@ -551,7 +553,8 @@ func main() {
 		1,
 		600,
 		&pool,
-		&WebSocketParse{})
+		&WebSocketParse{},
+		&ConChangeObserverEntity{})
 
 	WEIXIN.AddToDistributeEntity(&GateWay)
 	WEB.AddToDistributeEntity(&GateWay)
