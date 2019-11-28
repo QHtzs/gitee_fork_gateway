@@ -154,7 +154,7 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 
 	req_addr := ws.Request().RemoteAddr
 
-	defer w.Map.Delete(serial, req_addr)
+	//defer w.Map.Delete(serial, req_addr)
 	inter, ok := w.Map.LoadOrStore(serial, req_addr, ws)
 	if ok { //与tcp策略不同
 		if mws, ok := inter.(*websocket.Conn); ok {
@@ -214,6 +214,7 @@ func (w *WebSocketServerEntity) WebSockHandle(ws *websocket.Conn) {
 			tocast.FullRelease()
 		}
 	}
+	w.Map.Delete(serial, req_addr)
 	if w.ObserverInf != nil {
 		w.ObserverInf.HDisConnect(serial, w)
 		w.ObserverInf.SDisConnect(serial, entity, w, w.ToBroadCast...)
