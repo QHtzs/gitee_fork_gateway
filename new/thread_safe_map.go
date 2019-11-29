@@ -104,7 +104,11 @@ func (n *NetConMap) Range(serial string, f func(key interface{}, value interface
 			}
 		}
 	} else {
-		n.Deque.Range(f)
+		//n.Deque.Range(f) //bug, elevery serial is unique
+		v, ok := n.Deque.Load(serial)
+		if ok {
+			f(serial, v)
+		}
 	}
 }
 
