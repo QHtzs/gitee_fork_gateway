@@ -29,21 +29,21 @@ type TcpServerEntity struct {
 	Listener           net.Listener          //服务监听器
 	BeatInf            BeatPackageImpl       //心跳处理接口
 	CryptInf           CryptImpl             //加密解密接口
-	ObserverInf        ConChangeObserverImpl //观察接口
+	ObserverInf        ConChangeObserverImpl //客户端 连接/断开 观察接口
 	AckInf             AckImpl               //连接确认接口
-	ParserInf          PackageParseImpl      //解析接口
-	ToBroadCast        []ServerImpl          //广播对象
+	ParserInf          PackageParseImpl      //数据解析接口
+	ToBroadCast        []ServerImpl          //广播对象(其它服务端)
 	LastBeatSend       map[string]*int64     //上一次发送心跳包时间(soketfd:time)
 	MemQueue           FifoQueue             //数据存放队列
-	ChanQueue          chan net.Conn         //chan消息队列
-	ChanRoutineStatus  [100]bool             //灵活拓展routine用于应对，瞬时多个连接, 不加锁粗略使用
-	Pool               *MemPool              //内存池
-	MonitorCons        sync.Map              //监控某个socket的con
-	TcpClientCons      NetConMap             //tcp连接
-	Serial             string                //服务序列号
-	TimeOutSec         int64                 //超时时间 秒
-	WriteConrutionSize int                   //写数据的conroution数，少于0则每个tcp连接取一个conroutin，反之则共享WriteConrutionSize个
-	NeedFeedBack       bool                  //是否需要确认消息被接收
+	ChanQueue          chan net.Conn         //chan消息队列,存放新建连接，用于并发认证
+	ChanRoutineStatus  [100]bool             //灵活拓展routine用于应对，处理瞬时多个连接导致高压, 不加锁粗略使用
+	Pool               *MemPool              //内存池,内存复用
+	MonitorCons        sync.Map              //监控截取某个客户端收发内容，测试用
+	TcpClientCons      NetConMap             //已认证接受的 tcp连接
+	Serial             string                //服务序列号(服务名称)
+	TimeOutSec         int64                 //超时时间 秒(用于丢弃各种原因未能及时广播的消息)
+	WriteConrutionSize int                   //写数据的goroutin数，少于0则每个tcp连接取一个conroutin，反之则共享WriteConrutionSize个
+	NeedFeedBack       bool                  //是否需要确认消息被订阅者接收
 	rw_mutex           sync.RWMutex          //读写锁
 	tcpport            string                //服务开启地址
 }
@@ -125,7 +125,7 @@ func (t *TcpServerEntity) addMontitor(serial string, con *WrapConn) {
 	}
 }
 
-//添加con (device)
+//添加con (device), 接受已认证的客户端
 func (t *TcpServerEntity) addTcpConn(serial string, con *WrapConn) {
 	value := new(int64)
 	*value = time.Now().Unix()
@@ -352,6 +352,7 @@ func (t *TcpServerEntity) writeData(data DataWrapper) bool {
 	})
 
 	if ret {
+		//消息截听器,若连接，消息也发送到截取器
 		if montor_v, ok := t.MonitorCons.Load(serial); ok {
 			if m_con, ok := montor_v.(*WrapConn); ok {
 				if _, err := m_con.Write(src[0:data.DataLength]); err != nil {

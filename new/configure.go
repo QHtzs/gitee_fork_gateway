@@ -51,8 +51,9 @@ type TtgOtherCfg struct {
 
 //加密配置项
 type TtgEncrypt struct {
-	XMLName xml.Name `xml:"Encrypt"`
-	GateWay bool     `xml:"GateWay"`
+	XMLName       xml.Name `xml:"Encrypt"`
+	GateWay       bool     `xml:"GateWay"`
+	GateWayPubkey string   `xml:"GateWayPubkey"`
 }
 
 // https服务(websocket)配置项

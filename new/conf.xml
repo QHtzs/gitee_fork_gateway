@@ -16,7 +16,9 @@
 </Https>
 
 <Encrypt>
-<GateWay>true</GateWay>
+<GateWay>false</GateWay>
+<!--预留，块加密的公钥-->
+<GateWayPubkey>123456</GateWayPubkey>
 </Encrypt>
 
 <Redis>
