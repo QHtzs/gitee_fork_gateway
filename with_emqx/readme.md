@@ -96,11 +96,12 @@ MQTT消息服务器会发布遗愿消息。<br>
 */<br>
 
 ## 根据 I 则订阅和发布遵循基本规则
-CONTROL:  pub:[TTG/GATEWAY/`DEVICEID`], subscribe:[TTG/CONTRAL]  <br>
-HOST_OR_DEVICE: pub:[TTG/CONTRAL/`DEVICEID`], subscribe:[TTG/GATEWAY/`DEVICEID`] <br>
+CONTROL:  pub:[TTG/GATEWAY/`DEVICEID`], subscribe:[TTG/CONTROL/#]  <br>
+HOST_OR_DEVICE: pub:[TTG/CONTROL/`DEVICEID`], subscribe:[TTG/GATEWAY/`DEVICEID`] <br>
 
 ##  结构
 * [类UML图](mx.png)
+* [UML图](uml.png)
 
 
 
