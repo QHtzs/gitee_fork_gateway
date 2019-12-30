@@ -9,11 +9,15 @@ import (
 
 var _client mqtt.Client = nil
 
-func CreatClient() mqtt.Client {
+func CreatClient(id string) mqtt.Client {
 	opts := mqtt.NewClientOptions().AddBroker("tcp://" + utils.CfgInstance.Mqtt.Host + ":" + utils.CfgInstance.Mqtt.Port)
 	opts.SetUsername(utils.CfgInstance.Mqtt.User)
 	opts.SetPassword(utils.CfgInstance.Mqtt.Pwd)
-	opts.SetClientID(utils.CfgInstance.Mqtt.ClientId)
+	if id == "" {
+		opts.SetClientID(utils.CfgInstance.Mqtt.ClientId)
+	} else {
+		opts.SetClientID(id)
+	}
 	opts.SetCleanSession(true)
 	opts.SetConnectRetryInterval(10 * time.Second)
 	client := mqtt.NewClient(opts)
@@ -26,7 +30,7 @@ func CreatClient() mqtt.Client {
 }
 
 func ReConnect() {
-	_client = CreatClient()
+	_client = CreatClient("")
 }
 
 //默认其为并发安全的

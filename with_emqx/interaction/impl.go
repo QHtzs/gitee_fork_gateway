@@ -18,4 +18,5 @@ type ServerImp interface {
 	ClientIsOnline(serial string) bool  //服务下控制 序列号为serial的主机的连接 是否存在
 	ClientSerial() string               //读取服务名
 	Publish(serial string, data []byte) //消息推送
+	StartListen()                       //开始监听
 }

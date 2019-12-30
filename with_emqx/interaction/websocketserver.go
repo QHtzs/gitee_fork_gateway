@@ -37,6 +37,8 @@ var IndexPageBuff []byte = []byte(fmt.Sprintf(`
         
         sock.onmessage = function(e) {
             var result = document.getElementById('result');
+            console.log(e.data)
+            console.log(e.data.text && e.data.text())
             var text = (e.data.text && e.data.text()) || e.data;
             if(text.text){text = "BLOG, NEED FILEREADER TO DISERIES";}
             result.innerHTML = "收到回复：" + text;
@@ -107,7 +109,7 @@ func (w *WsServer) Publish(serial string, data []byte) {
 	for _, v := range cons {
 		ws, ok := v.(*WCon)
 		if ok {
-			websocket.Message.Send(ws.Conn, data)
+			websocket.Message.Send(ws.Conn, string(data))
 		}
 	}
 }

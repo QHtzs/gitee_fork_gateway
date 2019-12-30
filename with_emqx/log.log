@@ -1,1 +1,116 @@
-﻿
+﻿2019/12/30 10:09:36 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:10:30 websocketserver.go:196: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:10:30 websocketserver.go:199: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:10:30 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:10:30 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:10:46 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:11:13 websocketserver.go:196: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:11:13 websocketserver.go:199: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:11:13 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:11:13 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:12:11 websocketserver.go:170: WEBSOCKET TTG_DEMO_0001 connect
+2019/12/30 10:14:20 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEBSOCKET  serial= TTG_DEMO_0001
+2019/12/30 10:14:20 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEB  serial= TTG_DEMO_0001
+2019/12/30 10:14:20 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= APP  serial= TTG_DEMO_0001
+2019/12/30 10:15:14 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= APP  serial= TTG_DEMO_0001
+2019/12/30 10:15:14 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEBSOCKET  serial= TTG_DEMO_0001
+2019/12/30 10:15:14 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEB  serial= TTG_DEMO_0001
+2019/12/30 10:17:28 websocketserver.go:196: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:17:28 websocketserver.go:199: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:17:28 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:17:28 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:17:32 websocketserver.go:170: WEBSOCKET TTG_DEMO_0001 connect
+2019/12/30 10:17:45 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= APP  serial= TTG_DEMO_0001
+2019/12/30 10:17:45 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEB  serial= TTG_DEMO_0001
+2019/12/30 10:17:45 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEBSOCKET  serial= TTG_DEMO_0001
+2019/12/30 10:21:08 websocketserver.go:199: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:21:08 websocketserver.go:202: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:21:08 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:21:08 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:21:14 websocketserver.go:173: WEBSOCKET TTG_DEMO_0001 connect
+2019/12/30 10:22:19 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:22:19 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:22:19 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:22:19 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:22:30 websocketserver.go:172: WEBSOCKET TTG_DEMO_0001 connect
+2019/12/30 10:22:56 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= APP  serial= TTG_DEMO_0001
+2019/12/30 10:22:56 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEB  serial= TTG_DEMO_0001
+2019/12/30 10:22:56 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEBSOCKET  serial= TTG_DEMO_0001
+2019/12/30 10:24:51 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:24:51 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:24:51 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:24:51 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:25:16 websocketserver.go:172: WEBSOCKET TTG_DEMO_0001 connect
+2019/12/30 10:25:21 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEBSOCKET  serial= TTG_DEMO_0001
+2019/12/30 10:25:21 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEB  serial= TTG_DEMO_0001
+2019/12/30 10:25:21 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= APP  serial= TTG_DEMO_0001
+2019/12/30 10:26:22 websocketserver.go:179: WEBSOCKET TTG_DEMO_0001 dis connect
+2019/12/30 10:26:56 websocketserver.go:172: WEBSOCKET TTG_DEMO_0001 connect
+2019/12/30 10:30:37 websocketserver.go:179: WEBSOCKET TTG_DEMO_0001 dis connect
+2019/12/30 10:32:23 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:32:23 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:32:23 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:32:23 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:36:21 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:36:21 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:36:21 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:36:21 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:36:47 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEB  serial= TTG_DEMO_0001
+2019/12/30 10:36:47 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEBSOCKET  serial= TTG_DEMO_0001
+2019/12/30 10:36:47 main.go:211: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= APP  serial= TTG_DEMO_0001
+2019/12/30 10:39:01 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:39:01 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:39:01 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:39:01 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:39:20 main.go:213: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= APP  serial= TTG_DEMO_0001
+2019/12/30 10:39:20 main.go:213: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEB  serial= TTG_DEMO_0001
+2019/12/30 10:39:20 main.go:213: recv new info TTG/CONTROL/TTG_DEMO_0001  server serial= WEBSOCKET  serial= TTG_DEMO_0001
+2019/12/30 10:42:28 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:42:28 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:42:28 tcp_server.go:148: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:42:28 tcp_server.go:148: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:46:01 tcp_server.go:79: false
+2019/12/30 10:46:23 tcp_server.go:79: false
+2019/12/30 10:47:03 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:47:03 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:47:03 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:47:03 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:47:49 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:47:49 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:47:49 tcp_server.go:148: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:47:49 tcp_server.go:148: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:47:57 tcp_server.go:79: false
+2019/12/30 10:48:19 tcp_server.go:79: false
+2019/12/30 10:48:42 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:48:42 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:48:42 tcp_server.go:148: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:48:42 tcp_server.go:148: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:48:51 tcp_server.go:79: false
+2019/12/30 10:51:00 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:51:00 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:51:00 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:51:00 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:52:13 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:52:13 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:52:13 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:52:13 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:55:16 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:55:16 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:55:16 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:55:16 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:57:15 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:57:15 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:57:15 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:57:15 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 10:59:39 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 10:59:39 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 10:59:39 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 10:59:39 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 11:01:21 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 11:01:21 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 11:01:21 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 11:01:21 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
+2019/12/30 11:03:27 websocketserver.go:198: Wss Server going to Start, Server Serial: WEBSOCKET  port: 8099
+2019/12/30 11:03:27 websocketserver.go:201: warning: Https未配置，将采用http服务。若需要https请配置好配置文件后重启
+2019/12/30 11:03:27 tcp_server.go:147: Tcp Server Started, Server Serial: APP  port: 8081
+2019/12/30 11:03:27 tcp_server.go:147: Tcp Server Started, Server Serial: WEB  port: 8082
