@@ -120,6 +120,7 @@ func (w *WsServer) Init(allow_dup bool, ncbk, dcbk func(t ServerImp, con ConImp)
 	w.DisConCallBack = dcbk
 	w.ReadAndPublish = pub
 	w.AuthFunc = authandsetserial
+	w.Cons.SetAllowDup(allow_dup)
 }
 
 //断开连接，并触发DisConCallBack
@@ -157,14 +158,15 @@ func (w *WsServer) WebSockHandle(ws *websocket.Conn) {
 	buf := make([]byte, 0, 1024)
 	req_addr := ws.Request().RemoteAddr
 	var con *WCon = &WCon{Isok: true, Peer: req_addr, Conn: ws}
-	//con.SetReadDeadline(time.Now().Add(20 * time.Second))
+
 	if !w.AuthFunc(con) {
 		return
 	}
-	//con.SetReadDeadline(time.Time{})
+
 	serial := con.Serial()
 	defer w.CloseCon(con)
 	ok := w.AddCon(con)
+
 	if !ok {
 		utils.Logger.Println(w.Serial, serial, "con exist connect")
 		return

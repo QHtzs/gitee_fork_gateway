@@ -95,7 +95,7 @@ func (s *TcpServer) LoadCons(serial string) []ConImp {
 
 //初始化参数
 func (s *TcpServer) Init(allow_dup bool, ncbk, dcbk func(t ServerImp, con ConImp), pub func(serial string, data []byte), authandsetserial func(con ConImp) bool) {
-	s.Cons.SetAllowDup(true)
+	s.Cons.SetAllowDup(allow_dup)
 	s.NewConCallBack = ncbk
 	s.DisConCallBack = dcbk
 	s.ReadAndPublish = pub
