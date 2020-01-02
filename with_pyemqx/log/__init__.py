@@ -11,7 +11,7 @@ def create_file_logger(file_name: str):
     logger.setLevel(level=logging.INFO)
     handler = logging.FileHandler(file_name)
     handler.setLevel(level=logging.INFO)
-    fmt = logging.Formatter("%(asctime)s - [line:%(lineno)s  level:%(levelname)s]  %(message)s")
+    fmt = logging.Formatter("%(asctime)s - [%(filename)s-line:%(lineno)s  level:%(levelname)s]  %(message)s")
     c_handle = logging.StreamHandler()
     c_handle.setLevel(level=logging.INFO)
     handler.setFormatter(fmt)

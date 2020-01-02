@@ -57,7 +57,7 @@ class WsServer:
         bl, serial = await self.auth(ws)
         if not bl:
             return
-        address =self.address_to_string(ws.remote_address)
+        address = self.address_to_string(ws.remote_address)
         if self.conns is not None:
             if not self.conns.add_con(serial, address,  ws):
                 return
@@ -78,7 +78,7 @@ class WsServer:
                                       port=self.port
                                       )
         asyncio.get_event_loop().run_until_complete(server)
-        # asyncio.get_event_loop().run_forever()  # pending
+        asyncio.get_event_loop().run_forever()  # pending
 
 
 if __name__ == '__main__':

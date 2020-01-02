@@ -1,0 +1,1 @@
+2020-01-02 09:16:48,448 - [line:28  level:WARNING]  startswith first arg must be bytes or a tuple of bytes, not str

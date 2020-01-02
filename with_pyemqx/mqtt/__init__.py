@@ -17,3 +17,4 @@ def create_mqtt_client(host, client_id, username, password):
     client.username_pw_set(username=username, password=password)
     client.will_set("TTG/ONLINE", "OFF", 0)
     client.connect(host)
+    return client

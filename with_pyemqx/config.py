@@ -1,5 +1,9 @@
 # -*- coding:utf-8 -*-
 
 Mqtt = {
-    "host": "127.0.0.1",
+    "host": "192.168.3.111",
+    "user": "test",
+    "pwd": "test"
 }
+
+URL = "http://www.i-ttg.com/updateByState"
