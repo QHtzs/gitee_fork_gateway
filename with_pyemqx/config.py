@@ -7,3 +7,9 @@ Mqtt = {
 }
 
 URL = "http://www.i-ttg.com/updateByState"
+
+Ports = {
+    "APP": 8083,
+    "WEB": 8084,
+    "WSS": 8085
+}

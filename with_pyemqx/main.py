@@ -3,9 +3,10 @@
 from servers.tcpserver import start_tcp_listen
 from servers.wss import WsServer
 from servers.utils import ConDict
-from mqtt import create_mqtt_client
-from threading import Thread
 import config
+from mqtt import create_mqtt_client
+
+from threading import Thread
 import requests
 import re
 from functools import partial
@@ -70,7 +71,7 @@ WssCon = ConDict("WEB", "ws", lambda x: x.close())
 on_host_online = partial(new_host_connected, 1)
 on_host_offline = partial(new_host_connected, 0)
 # 涉及到全局性相互引用，生存周期为整个程序运行过程，故不采用weakref
-# 便于理解，采用代码平铺式
+# 便于理解，采用平铺式结构
 client = create_mqtt_client(config.Mqtt["host"], "con_client", config.Mqtt["user"], config.Mqtt["pwd"])
 on_new_connect = create_on_new_connect(client, TcpCon0, TcpCon1, WssCon)
 TcpCon0.set_action(new_con=on_new_connect, dis_con=on_new_connect)
@@ -81,15 +82,16 @@ client2.on_message = create_on_message(TcpCon0, TcpCon1, WssCon)
 client2.subscribe("TTG/GATEWAY/#")
 mqtt_publish = partial(mqtt_publisher, client2)
 
+
 if __name__ == '__main__':
     # 变量均为线程级的共享，请勿多进程
-    t = Thread(target=start_tcp_listen, args=(8385, TcpCon0,  mqtt_publish))
+    t = Thread(target=start_tcp_listen, args=(config.Ports["APP"], TcpCon0,  mqtt_publish))
     t.setDaemon(True)
     t.start()
 
-    t = Thread(target=start_tcp_listen, args=(8386, TcpCon1,  mqtt_publish))
+    t = Thread(target=start_tcp_listen, args=(config.Ports["WEB"], TcpCon1,  mqtt_publish))
     t.setDaemon(True)
     t.start()
 
-    s = WsServer("0.0.0.0", 8384, WssCon, mqtt_publish)
+    s = WsServer("0.0.0.0", config.Ports["WSS"], WssCon, mqtt_publish)
     s.listen()
